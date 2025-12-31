@@ -1,4 +1,4 @@
-Scalable Capital PDF Downloader (v0.83)
+# Scalable Capital PDF Downloader (v0.83)
 
 Deutsch | English see below
 
@@ -130,3 +130,4 @@ For Power Users (Script Mode)
 
     pdf_button_timeout: Time limit to wait for the download button to appear (Default: 100).
 	
+
