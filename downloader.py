@@ -2,11 +2,11 @@
 # -*- coding: utf-8 -*-
 """
 Scalable Capital PDF Downloader
-Version: 0.83
-Wiederherstellung der detaillierten Log-Ausgaben & Zielpfad-Anzeige
+Version: 0.87
+Feature: Nummerierte Error-Screenshots im Download-Verzeichnis
 """
 
-__version__ = "0.83"
+__version__ = "0.87"
 
 import os
 import sys
@@ -103,14 +103,8 @@ def run_downloader():
     KEYWORDS = settings['keywords']
     TARGET_URL = "https://de.scalable.capital/broker/transactions"
     
-    # Pfad-Logik für Download-Ordner
-    if os.path.isabs(settings['download_dir']):
-        DOWNLOAD_DIR = settings['download_dir']
-    else:
-        DOWNLOAD_DIR = os.path.join(BASE_DIR, settings['download_dir'])
-    
+    DOWNLOAD_DIR = settings['download_dir'] if os.path.isabs(settings['download_dir']) else os.path.join(BASE_DIR, settings['download_dir'])
     os.makedirs(DOWNLOAD_DIR, exist_ok=True)
-    # WIEDERHERGESTELLT: Anzeige des Zielpfads beim Start
     print(f"Zielordner: {DOWNLOAD_DIR}")
 
     with sync_playwright() as p:
@@ -171,6 +165,7 @@ def run_downloader():
         # --- Download Schleife ---
         downloaded = skipped = 0
         for target_idx, (idx, full_text, keyword) in enumerate(targets):
+            file_name = "unknown_transaction.pdf" 
             try:
                 print(f"[{target_idx+1}/{len(targets)}] {full_text[:50]}...")
                 current_items = page.locator("div[role='button'], button").all()
@@ -217,7 +212,6 @@ def run_downloader():
                 target_path = os.path.join(DOWNLOAD_DIR, file_name)
                 
                 if os.path.exists(target_path):
-                    # WIEDERHERGESTELLT: Detaillierte Anzeige des Dateinamens
                     print(f"  -> ✓ Bereits vorhanden: {file_name}")
                     skipped += 1
                     if settings['stop_at_first_duplicate']:
@@ -228,13 +222,29 @@ def run_downloader():
                     response = page.request.get(pdf_url)
                     if response.status == 200:
                         with open(target_path, "wb") as f: f.write(response.body())
-                        # WIEDERHERGESTELLT: Detaillierte Anzeige des gespeicherten Dateinamens
                         print(f"  -> ✓ Gespeichert: {file_name}")
                         downloaded += 1
                 
                 page.keyboard.press("Escape")
                 time.sleep(0.1)
-            except: 
+            except Exception as e: 
+                # NEU: Fehler-Screenshot mit Nummerierung im Download-Verzeichnis
+                error_count = 1
+                base_error_name = file_name.replace('.pdf', '.png')
+                
+                # Prüfe auf freie Nummer
+                while os.path.exists(os.path.join(DOWNLOAD_DIR, f"error_{error_count}_{base_error_name}")):
+                    error_count += 1
+                
+                error_file_name = f"error_{error_count}_{base_error_name}"
+                error_path = os.path.join(DOWNLOAD_DIR, error_file_name)
+                
+                try:
+                    page.screenshot(path=error_path)
+                    print(f"  ✗ FEHLER. Screenshot gespeichert: {error_file_name}")
+                except:
+                    print(f"  ✗ FEHLER. Screenshot fehlgeschlagen: {e}")
+                
                 try: page.keyboard.press("Escape")
                 except: pass
 
@@ -249,3 +259,4 @@ def run_downloader():
 if __name__ == "__main__":
     ensure_browser()
     run_downloader()
+    input("\nProgramm beendet. Drücke Enter zum Schließen...")
