@@ -1,4 +1,4 @@
-# Scalable Capital PDF Downloader 
+# Scalable Capital PDF Downloader  ![Downloads](https://img.shields.io/github/downloads/MichaelN0815/SC-Downloader/total?style=flat-square&color=blue)
 
 Deutsch | English see below
 
@@ -147,5 +147,6 @@ For Power Users (Script Mode)
 
     pdf_button_timeout: Time limit to wait for the download button to appear (Default: 100).
 	
+
 
 
