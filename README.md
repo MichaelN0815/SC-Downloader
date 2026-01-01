@@ -1,4 +1,4 @@
-# Scalable Capital PDF Downloader (v0.83)
+# Scalable Capital PDF Downloader 
 
 Deutsch | English see below
 
@@ -19,23 +19,40 @@ Ein automatisiertes Tool zum Herunterladen von Wertpapierabrechnungen (Kauf, Ver
     Portabilität: Als EXE-Version inklusive Browser verfügbar (keine Python-Installation nötig).
 
 # Installation & Nutzung
+# Für Einsteiger (EXE-Modus)
+
+    Lade die fertige EXE-Datei aus dem Bereich Releases herunter.
+    Starte die EXE. Beim ersten Start kann es 10-20 Sekunden dauern, bis sich das Fenster öffnet, da der integrierte Browser entpackt wird.
+
+	Ich verstehe, wenn man ein ungutes Gefühl hat eine unbekannte EXE auf seinen Rechner und noch dazu sein Depot loszulassen. 
+	Daher steht auch der Python Quellcode zur Verfügung. Diesen kann man auch als Python Unkundiger von einer KI der Wahl einem Code-Review unterziehen
+	und prüfen lassen, was der Code wirklich macht. 
+	
 Für Poweruser (Skript-Modus)
 
     Python 3.12+ installieren.
 
     Projekt-Ordner erstellen und downloader.py sowie start_downloader.bat hineinkopieren.
+    ggf. auch die INI wenn man vor dem ersten Start bereits Parameter anpassen will. Ansonsten wird die INI automatisch erstellt.
 
-    Bibliotheken installieren: pip install playwright.
+    Bibliotheken installieren: 
+	pip install playwright.
 
-    Browser installieren: playwright install chromium.
+    Browser installieren: 
+	playwright install chromium.
 
-    Starten über die start_downloader.bat.
+    Starten über
+	python downloader.py
+	oder die SC-Downloader.bat.
 
-# Für Einsteiger (EXE-Modus)
+# Hinweise
 
-    Lade die fertige EXE-Datei aus dem Bereich Releases herunter.
-
-    Starte die EXE. Beim ersten Start kann es 10-20 Sekunden dauern, bis sich das Fenster öffnet, da der integrierte Browser entpackt wird.
+- Wenn die INI Datei noch nicht existiert, wird sie mit Standard-Werten angelegt
+- Wenn kein Download-Ordner definiert wurde, wird im Start-Ordner ein Verzeichnis Scalable_Downloads angelegt, in dem die PDFs landen
+- Das Skript legt einen Order scalable_session an, in dem die Laufzeit-Daten des integrierten Browsers abgelegt werden
+- Wenn das Skript ordnungsgemäß durchläuft loggt es sich am Ende aus. Stürzt das Skript ab oder hat man die Logout-Option deaktiviert, 
+  dann ist es möglich ohne Login mit diesen Session Daten Scalable aufzurufen, bis das Timeout bei Scalable greift. 
+  Ggf. sollte man den Ordner löschen, wenn man absolut sicher gehen will. 
 	
 # === INI Parameter ===	
 
@@ -130,4 +147,5 @@ For Power Users (Script Mode)
 
     pdf_button_timeout: Time limit to wait for the download button to appear (Default: 100).
 	
+
 
