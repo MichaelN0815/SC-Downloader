@@ -23,7 +23,7 @@ Ich verstehe, wenn man ein ungutes Gefühl hat eine unbekannte EXE auf seinen Re
 Daher steht auch der Python Quellcode zur Verfügung. Diesen kann man auch als Python Unkundiger von einer KI der Wahl einem Code-Review unterziehen
 und prüfen lassen, was der Code wirklich macht. 
 	
-Für Poweruser (Skript-Modus)
+# Für Poweruser (Skript-Modus)
 
 Python 3.12+ installieren.
 
@@ -136,6 +136,7 @@ critical_wait: Safety wait time before searching for document elements (Default:
 
 pdf_button_timeout: Time limit to wait for the download button to appear (Default: 100).
 	
+
 
 
 
