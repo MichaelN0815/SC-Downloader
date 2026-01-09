@@ -2,7 +2,7 @@
 
 Deutsch | English see below
 
-Ein automatisiertes Tool zum Herunterladen von Wertpapierabrechnungen (Kauf, Verkauf, Sparplan, Ausschüttung, etc.) von Scalable Capital.
+Ein Tool zum automatisierten Herunterladen von Wertpapierabrechnungen (Kauf, Verkauf, Sparplan, Ausschüttung, etc.) von Scalable Capital.
 
 # Features
 
@@ -69,22 +69,24 @@ logout_after_run: Meldet den Benutzer nach Abschluss aller Aktionen automatisch 
 
 **[Keywords]**
 
-transaction_types: Komma-getrennte Liste der Begriffe, die heruntergeladen werden sollen (Standard: Ausschüttung, Kauf, Verkauf, Sparplan)
+transaction_types: Komma-getrennte Liste der Begriffe, die heruntergeladen werden sollen (Standard: Ausschüttung, Kauf, Verkauf, Sparplan, Steuern)
 Die Namen der Typen entsprechen dem Filter "Auftragstyp" in Scalable
+Bei manchen Transaktionen gibt es kein PDF - dann wird das Programm einen Fehler-Screenshot speichern!
+Es gibt Transaktionen, die haben in der Filterliste einen anderen Namen, als dann in der gefilterten Liste angezeigt wird. 
+z.B. "Depotübertrag" im Filter und "Einlieferung" in der Liste. Dann muss man unter transaction_types beide eintragen.  
+
+**[ButtonTexts]**
+
+Wenn Scalable mal die Texte in der Webseite ändert, kann man die hier anpassen. Ansonsten gilt: Finger weg!
 
 **[Timeouts]**
 
-page_load_wait: Wartezeit in Millisekunden nach dem ersten Laden der Transaktionsseite (Standard: 1000).
-
-transaction_wait: Kurze Pause zwischen den einzelnen Downloads zur Stabilisierung (Standard: 50).
-
-critical_wait: Sicherheits-Wartezeit vor der Suche nach Dokument-Elementen (Standard: 50).
-
-pdf_button_timeout: Zeitlimit, wie lange auf das Erscheinen des Download-Buttons gewartet wird (Standard: 100)
+Auch hier besser Finger weg!
+Wenn es zu einem Abbruch wegen Timeout kommt, kann man hier die Zeiten experimentell verlängern
 
 # ===  english version ====
 
-An automated tool for downloading brokerage statements (Buy, Sell, Savings Plan, Dividend) from Scalable Capital.
+A tool for automated downloading transaction files (Buy, Sell, Savings Plan, Dividend) from Scalable Capital.
 Features
 
 - Automated Download: Downloads documents based on configurable keywords
@@ -95,49 +97,74 @@ Features
 - Portability: Available as an EXE version including a portable browser (no Python installation required).
 
 # Installation & Usage
-For Power Users (Script Mode)
-
- Install Python 3.12+.
- Create a project folder and copy downloader.py and start_downloader.bat into it.
- Install libraries: pip install playwright.
- Install browser: playwright install chromium.
- Launch via start_downloader.bat.
 
 # For Beginners (EXE Mode)
 
-Download the pre-built EXE file from the Releases section.
-Run the EXE. The first launch may take 10-20 seconds to open as the integrated browser is unpacked.
-	
-# === INI Parameter ===	
+Download the ready-to-use EXE file from the Releases section.
+Run the EXE. During the first launch, it may take 10-20 seconds for the window to open while the integrated browser is being unpacked.
 
-[General]
+I understand if you feel uneasy about running an unknown EXE on your computer, especially when it involves your brokerage account.
+Therefore, the Python source code is also available. Even if you are not familiar with Python, you can have the code reviewed by an AI of your choice to verify what the code actually does.
 
-max_transactions: Maximum number of transactions the script will check in the list (Default: 20).
+# For Power Users (Script Mode)
 
-download_directory: Name of the folder or full path where PDFs are stored (Default: Scalable_Downloads).
+Install Python 3.12+.
 
-stop_at_first_duplicate: If "True", the script stops as soon as it encounters the first already existing file (Default: False).
+Create a project folder and copy downloader.py and start_downloader.bat into it.
+If necessary, also copy the INI file if you want to adjust parameters before the first start. Otherwise, the INI will be created automatically.
 
-use_original_filename: If "True", keeps Scalable's original name; if "False", uses descriptive naming (Default: False).
-
-logout_after_run: Automatically logs out the user after the script completes all actions (Default: True).
-
-[Keywords]
-
-transaction_types: Comma-separated list of terms to be downloaded (Default: Ausschüttung, Kauf, Verkauf, Sparplan).
-
-[Timeouts]
-
-page_load_wait: Wait time in milliseconds after initially loading the transaction page (Default: 1000).
-
-transaction_wait: Short pause between individual downloads for stabilization (Default: 50).
-
-critical_wait: Safety wait time before searching for document elements (Default: 50).
-
-pdf_button_timeout: Time limit to wait for the download button to appear (Default: 100).
-	
+Install libraries:
 
 
+	pip install playwright
 
 
+Install browser:
+
+
+	playwright install chromium
+
+Start via
+
+	python downloader.py
+
+or the SC-Downloader.bat.
+
+# Notes
+
+* If the INI file does not exist yet, it will be created with default values.
+* If no download folder is defined, a directory named Scalable_Downloads will be created in the startup folder where the PDFs will be stored.
+* The script creates a folder named scalable_session, where the runtime data of the integrated browser is stored.
+* If the script completes correctly, it will log out at the end. If the script crashes or if you have deactivated the logout option, it is possible to access Scalable without a login using these session data until the Scalable timeout takes effect. You may want to delete the folder if you want to be absolutely safe.
+
+# === INI Parameters ===
+
+**[General]**
+
+max_transactions: Maximum number of transactions the script attempts to load (Default: 20).
+
+download_directory: Name of the folder or full path where the PDFs will be saved (Default: Scalable_Downloads).
+
+stop_at_first_duplicate: If "True", the script stops as soon as the first already existing file is found (Default: False).
+
+use_original_filename: If "True", the original Scalable filename is kept; if "False", a descriptive naming convention is used (Default: False).
+
+logout_after_run: Automatically logs the user out after completing all actions (Default: True).
+
+**[Keywords]**
+
+transaction_types: Comma-separated list of terms to be downloaded (Default: Ausschüttung, Kauf, Verkauf, Sparplan, Steuern).
+The names of the types correspond to the "Order Type" filter in Scalable.  
+For some transactions, there is no PDF – in this case, the program will save an error screenshot!
+There are transactions that have a different name in the filter list than what is displayed in the filtered list.
+For example, "Depotübertrag" in the filter and "Einlieferung" in the list. In such cases, both must be entered under transaction_types.
+
+**[ButtonTexts]**
+
+If Scalable changes the text on the website, you can adjust them here. Otherwise: Hands off!
+
+**[Timeouts]**
+
+It’s best to leave these alone as well!
+If a timeout occurs, you can experimentally increase the times here.
 
