@@ -32,17 +32,17 @@ ggf. auch die INI wenn man vor dem ersten Start bereits Parameter anpassen will.
 
 Bibliotheken installieren: 
 
-	pip install playwright.
+	pip install playwright
 
 Browser installieren:
 
-	playwright install chromium.
+	playwright install chromium
 
 Starten über
 
 	python downloader.py
 	
-oder die SC-Downloader.bat.
+oder die SC-Downloader.bat
 
 # Hinweise
 
@@ -167,4 +167,5 @@ If Scalable changes the text on the website, you can adjust them here. Otherwise
 
 It’s best to leave these alone as well!
 If a timeout occurs, you can experimentally increase the times here.
+
 
