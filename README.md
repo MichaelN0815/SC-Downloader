@@ -1,4 +1,6 @@
 # Scalable Capital PDF Downloader  ![Downloads](https://img.shields.io/github/downloads/MichaelN0815/SC-Downloader/total?style=flat-square&color=blue)
+![SC-Icon](https://github.com/user-attachments/assets/c9fdfd75-ba4b-47e6-bdbd-eb000ce26566)
+
 
 Deutsch | English see below
 
@@ -12,6 +14,9 @@ Ein Tool zum automatisierten Herunterladen von Wertpapierabrechnungen (Kauf, Ver
 - Abbruch-Option: Kann beim ersten gefundenen Duplikat stoppen (stop-at-first-duplicate).
 - 2FA-Support: Unterstützt den manuellen Login inklusive Zwei-Faktor-Authentifizierung.
 - Portabilität: Als EXE-Version inklusive Browser verfügbar (keine Python-Installation nötig).
+
+![Screenshot1](https://github.com/user-attachments/assets/b19e3dd1-a223-451a-9c71-e818014113f3)
+![Screenshot2](https://github.com/user-attachments/assets/adfc9cc7-d083-4464-b9a9-a215537dde52)
 
 # Installation & Nutzung
 # Für Einsteiger (EXE-Modus)
@@ -167,5 +172,6 @@ If Scalable changes the text on the website, you can adjust them here. Otherwise
 
 It’s best to leave these alone as well!
 If a timeout occurs, you can experimentally increase the times here.
+
 
 
