@@ -1,0 +1,11 @@
+# Change Log
+
+v0.83 Initial Releases
+v0.85 creates Screenshot in case of an error
+v0.87 EXE-File: waiting for key at end of process
+v0.91 added to INI: Button-Text; more Timeout-Options; improved: Speed; PDF validation; Exception-Handling
+v0.92 optimized website handling; more stable Login & Logout
+
+V2.00 PDF Downloads also for new documents stored in Scalable Mailbox
+V2.01 Option to load all Documents, not only the new ones
+V2.02 Translation ISIN to WKN
