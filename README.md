@@ -99,8 +99,9 @@ Wird eine ISIN gefunden, dann wird sie durch die angegebene WKN ersetzt
 Wird die ISIN nicht gefunden, wird weiterhin die ISIN von Scalable genutzt
 
 Beispiel:
-LU2572257124 = ETF018
-LU0496786657 = LYX0FZ
+
+	LU2572257124 = ETF018
+	LU0496786657 = LYX0FZ
 
 **[ButtonTexts]**
 
@@ -211,4 +212,5 @@ If Scalable changes the text on the website, you can adjust them here. Otherwise
 
 It’s best to leave these alone as well!
 If a timeout occurs, you can experimentally increase the times here.
+
 
