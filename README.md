@@ -1,5 +1,5 @@
-# Scalable Capital PDF Downloader  ![Downloads](https://img.shields.io/github/downloads/MichaelN0815/SC-Downloader/total?style=flat-square&color=blue)
 ![SC-Icon](https://github.com/user-attachments/assets/c9fdfd75-ba4b-47e6-bdbd-eb000ce26566)
+# Scalable Capital PDF Downloader  ![Downloads](https://img.shields.io/github/downloads/MichaelN0815/SC-Downloader/total?style=flat-square&color=blue)
 
 Deutsch | English see below
 
@@ -10,8 +10,7 @@ Ein Tool zum automatisierten Herunterladen von Wertpapierabrechnungen (Kauf, Ver
 - Lädt Transaktion-Dokumente basierend auf konfigurierbaren Keywords herunter
 - Intelligente Benennung: Dateien werden nach dem Schema Datum-Typ-ISIN-Name-Betrag.pdf benannt
 - Wahlweise kann die ISIN durch die WKN ersetzt werden
-- Lädt neue (oder alle) Dokumente aus der Mailbox herunter
-- Hier wird immer der Original-Dateiname benutzt
+- Lädt neue (oder alle) Dokumente aus der Mailbox herunter (immer mit dem Original-Dateinamen)
 - Duplikats-Prüfung: Bereits vorhandene Dateien werden erkannt und übersprungen
 - Abbruch-Option: Kann beim ersten gefundenen Duplikat stoppen (stop-at-first-duplicate)
 - Unterstützt den manuellen Login inklusive Zwei-Faktor-Authentifizierung
@@ -27,11 +26,20 @@ Ein Tool zum automatisierten Herunterladen von Wertpapierabrechnungen (Kauf, Ver
 Lade die fertige EXE-Datei aus dem Bereich Releases herunter.
 Starte die EXE. Beim ersten Start kann es 10-20 Sekunden dauern, bis sich das Fenster öffnet, da der integrierte Browser entpackt wird.
 
-In der INI-Datei kann man verschiedene Optionen konfigurieren, siehe Abschnitt INI-Parameter
+In der INI-Datei kann man verschiedene Optionen konfigurieren, siehe Abschnitt INI-Parameter.
+Hierzu lädt man sich am besten die kommentierte INI-Datei aus dem Projekt runter. 
+Damit lässt es sich bequemer arbeiten, als mit der automatisch generierten. 
+Die INI-Datei kann einfach mit dem Texteditor bearbeitet werden. 
+Alles was mit # beginnt ist ein Kommentar und hat keine Funktion. 
 
+Hinweis: 
 Ich verstehe, wenn man ein ungutes Gefühl hat eine unbekannte EXE auf seinen Rechner und noch dazu sein Depot loszulassen. 
 Daher steht auch der Python Quellcode zur Verfügung. Diesen kann man auch als Python Unkundiger von einer KI der Wahl einem Code-Review unterziehen
 und prüfen lassen, was der Code wirklich macht. 
+
+# Update-Hinweis
+
+Da sich teilweise der Funktionsumfang ändert und damit einhergehend Einträge in der INI ergänzt wurden, empfehle ich bei einem Update auch die neuste INI runterzuladen und die Einträge aus der alten zu übertragen
 	
 # Für Poweruser (Skript-Modus)
 
@@ -201,6 +209,7 @@ If an ISIN is found, it is replaced by the specified WKN.
 If the ISIN is not found, the ISIN continues to be used.
 
 Example:
+
 	LU2572257124 = ETF018
 	LU0496786657 = LYX0FZ
 
@@ -212,6 +221,4 @@ If Scalable changes the text on the website, you can adjust them here. Otherwise
 
 It’s best to leave these alone as well!
 If a timeout occurs, you can experimentally increase the times here.
-
-
 
