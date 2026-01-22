@@ -2,17 +2,21 @@
 # -*- coding: utf-8 -*-
 """
 Scalable Capital PDF Downloader
-erweitert um Dokumente Bereich
-WKN-Mapping Erweiterung
+Scroll-Funktion für große Transactions Zahl
+Ordner aufrufen
+Inline Kommentare
 """
 
-__version__ = "2.02"
+__version__ = "2.05"
 
 import os
 import sys
 import time
 import configparser
 import re
+# NEU V2.04b
+import platform
+import subprocess
 from datetime import datetime
 from playwright.sync_api import sync_playwright
 from urllib.parse import urlparse, unquote
@@ -21,6 +25,7 @@ from urllib.parse import urlparse, unquote
 # --- 1. STANDARDEINSTELLUNGEN ---
 TARGET_URL = "https://de.scalable.capital/broker/transactions"
 TARGET_URL2 = "https://de.scalable.capital/cockpit/mailbox"
+DOWNLOAD_DIR = None  # NEU V2.04b Global
 
 DEFAULT_CONFIG = {
     'max_transactions': '20',
@@ -103,7 +108,11 @@ def convert_isin_to_wkn(isin_str, wkn_mapping):
     return isin_str
 
 def load_config():
-    config = configparser.ConfigParser()
+    # NEU V2.05: Inline Kommentare in INI erlaubt
+    config = configparser.ConfigParser(
+        inline_comment_prefixes=('#', ';'),
+        comment_prefixes=('#', ';')
+    )
     if os.path.exists(CONFIG_PATH):
         config.read(CONFIG_PATH, encoding='utf-8')
         print(f"[v{__version__}] Konfiguration geladen: {CONFIG_PATH}")
@@ -235,6 +244,59 @@ def handle_popups(page):
     except Exception as e:
         print(f"  ⚠ Popup-Handling Fehler: {e}")
 
+# ========== NEU V2.04: Scroll-Funktion zum Nachladen ==========
+def scroll_and_load_transactions(page, keywords, max_transactions, settings):
+    """
+    Scrollt durch die Transaktionsliste und lädt nach, bis max_transactions 
+    erreicht ist oder keine neuen Transaktionen mehr erscheinen.
+    """
+    print(f"[v{__version__}] Starte Scroll-Logik zum Nachladen...")
+    
+    previous_count = 0
+    stable_count = 0
+    #wie oft wird Page-down gedrückt und auf neue Transaktionen geprüft?
+    max_stable_iterations = 10
+    
+    while True:
+        try:
+            all_items = page.locator("div[role='button'], button").all()
+        except Exception as e:
+            print(f"  ⚠ Fehler beim Laden der Elemente: {e}")
+            break
+        
+        current_targets = collect_targets(all_items, keywords, max_transactions)
+        current_count = len(current_targets)
+        
+        print(f"  → Aktuell sichtbar: {current_count} Transaktionen")
+        
+        # Prüfen ob max_transactions erreicht
+        if current_count >= max_transactions:
+            print(f"  ✓ Maximum erreicht ({max_transactions})")
+            break
+        
+        # Prüfen ob sich die Anzahl nicht mehr ändert
+        if current_count == previous_count:
+            stable_count += 1
+            if stable_count >= max_stable_iterations:
+                print(f"  ✓ Keine neuen Transaktionen mehr nach {max_stable_iterations} Versuchen")
+                break
+        else:
+            stable_count = 0
+        
+        previous_count = current_count
+        
+        # Scrollen mit Page Down
+        try:
+            page.keyboard.press("PageDown")
+            time.sleep(settings['critical_wait'])
+        except Exception as e:
+            print(f"  ⚠ Scroll fehlgeschlagen: {e}")
+            break
+    
+    print(f"[v{__version__}] Scroll-Logik beendet. Insgesamt {current_count} Transaktionen verfügbar.")
+    return current_count
+# ========== ENDE NEU V2.04 ==========
+
 def save_error_screenshot(page, download_dir, full_text, error_type, date_str=None, wp_name=None):
     """Speichert einen Error-Screenshot mit aussagekräftigem Namen"""
     try:
@@ -261,11 +323,12 @@ def save_error_screenshot(page, download_dir, full_text, error_type, date_str=No
         error_path = os.path.join(download_dir, error_file_name)
         
         page.screenshot(path=error_path)
-        print(f"  ⚠ Screenshot gespeichert: {error_file_name}")
+        print(f"*** ERROR ***  ⚠ Screenshot gespeichert: {error_file_name}") # V2.04b
     except Exception as screenshot_error:
         print(f"  ⚠ Screenshot fehlgeschlagen: {screenshot_error}")
 
 def run_downloader():
+    global DOWNLOAD_DIR # NEU V2.04b
     settings = load_config()
     KEYWORDS = settings['keywords']
     PDF_BUTTON_NAMES = settings['pdf_button_names']
@@ -362,6 +425,17 @@ def run_downloader():
             except Exception:
                 all_items = []
             targets = collect_targets(all_items, KEYWORDS, settings['max_transactions'])
+
+        # ========== NEU V2.04: Scroll-Logik aktivieren ==========
+        if len(targets) < settings['max_transactions']:
+            total_visible = scroll_and_load_transactions(page, KEYWORDS, settings['max_transactions'], settings)
+            # Nach dem Scrollen erneut alle Targets sammeln
+            try:
+                all_items = page.locator("div[role='button'], button").all()
+                targets = collect_targets(all_items, KEYWORDS, settings['max_transactions'])
+            except Exception as e:
+                print(f"  ⚠ Fehler beim erneuten Sammeln nach Scroll: {e}")
+        # ========== ENDE NEU V2.04 ==========
 
         print(f"[v{__version__}] Suche beendet. {len(targets)} relevante Dokumente gefunden.")
         
@@ -547,6 +621,9 @@ def run_downloader():
         # ENDE for Schleife Transaktionen
         
         # Start Download Dokumente
+        docs_downloaded = 0
+        docs_skipped = 0
+                
         if settings['get_documents']:
             print(f"\n[v{__version__}] ...suche nach Dokumenten (max. {settings['max_documents']})")
             
@@ -590,9 +667,6 @@ def run_downloader():
                 except Exception as e:
                     print(f"  ✗ Fehler beim Laden der Dokumentenliste: {e}")
                     all_rows = []
-                
-                docs_downloaded = 0
-                docs_skipped = 0
                 
                 # Begrenze auf max_documents
                 rows_to_process = all_rows[:settings['max_documents']]
@@ -706,12 +780,59 @@ def run_downloader():
                     print(f"⚠ Abmeldung fehlgeschlagen: {e}")
         
         context.close()
-        print(f"\n[v{__version__}] *** FERTIG ***")
+        print(f"\n[v{__version__}] *** Ergebnis ***")
         print(f"[v{__version__}] Download-Verzeichnis: {DOWNLOAD_DIR}")
         print(f"[v{__version__}] Transaktionen neu geladen: {downloaded}, Übersprungen: {skipped}")
         print(f"[v{__version__}] Dokumente     neu geladen: {docs_downloaded}, Übersprungen: {docs_skipped}")
 
+# =========== NEU V2.04b ===============
+def open_download_folder(download_dir):
+    """Öffnet den Download-Ordner im Dateimanager"""
+    try:
+        system = platform.system()
+        if system == "Windows":
+            os.startfile(download_dir)
+        elif system == "Darwin":  # macOS
+            subprocess.run(["open", download_dir])
+        else:  # Linux und andere Unix-Systeme
+            subprocess.run(["xdg-open", download_dir])
+        print(f"  ✓ Ordner geöffnet: {download_dir}")
+    except Exception as e:
+        print(f"  ⚠ Ordner konnte nicht geöffnet werden: {e}")
+# ========== ENDE NEU V2.04b ==========
+
 if __name__ == "__main__":
     ensure_browser()
     run_downloader()
-    input("\nProgramm beendet. Drücke Enter zum Schließen...")
+    
+    # NEU V2.04b Download-Ordner zum öffnen anbieten
+    print("="*30)
+    print("ENTER  = Ordner öffnen und beenden")
+    print("ESC    = Sofort beenden")
+    print("="*30)
+    
+    # Plattformübergreifende Tastatureingabe
+    if platform.system() == "Windows":
+        import msvcrt
+        print("Warte auf Tastendruck...")
+        key = msvcrt.getch()
+        if key in [b'\r', b'\n']:  # ENTER
+            open_download_folder(DOWNLOAD_DIR)
+    else:
+        # Unix/Linux/macOS
+        import sys
+        import tty
+        import termios
+        
+        print("Warte auf Tastendruck...")
+        fd = sys.stdin.fileno()
+        old_settings = termios.tcgetattr(fd)
+        try:
+            tty.setraw(fd)
+            key = sys.stdin.read(1)
+            if key in ['\r', '\n']:  # ENTER
+                print()  # Neue Zeile für saubere Ausgabe
+                open_download_folder(DOWNLOAD_DIR)
+        finally:
+            termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
+            
