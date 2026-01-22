@@ -9,3 +9,9 @@ v0.92 optimized website handling; more stable Login & Logout
 V2.00 PDF Downloads also for new documents stored in Scalable Mailbox
 V2.01 Option to load all Documents, not only the new ones
 V2.02 Translation ISIN to WKN
+V2.03 Bug with "get_documents = False" fixed
+V2.04 could now hanlde more than 50 Transactions
+      added option to open download directory after completion
+V2.05 Inline comments in INI allowed
+
+
