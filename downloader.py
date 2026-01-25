@@ -2,12 +2,11 @@
 # -*- coding: utf-8 -*-
 """
 Scalable Capital PDF Downloader
-Scroll-Funktion für große Transactions Zahl
-Ordner aufrufen
-Inline Kommentare
+robustere Click auf Transaktion
+Sonderbehandlung Vorabpauschale
 """
 
-__version__ = "2.05"
+__version__ = "2.06"
 
 import os
 import sys
@@ -327,6 +326,17 @@ def save_error_screenshot(page, download_dir, full_text, error_type, date_str=No
     except Exception as screenshot_error:
         print(f"  ⚠ Screenshot fehlgeschlagen: {screenshot_error}")
 
+# NEU V2.06
+def normalize_text(s: str) -> str:
+    if not s:
+        return ""
+    s = s.replace("\u00a0", " ")          # NBSP
+    s = re.sub(r'\s+', ' ', s)            # Whitespace normalisieren
+    s = s.replace("\n", " ").strip()
+    return s
+
+
+
 def run_downloader():
     global DOWNLOAD_DIR # NEU V2.04b
     settings = load_config()
@@ -445,21 +455,31 @@ def run_downloader():
             try:
                 print(f"\n[{target_idx+1}/{len(targets)}] {full_text[:50]}...")
                 
+                # Transaktion öffnen
                 try:
-                    current_items = page.locator("div[role='button'], button").all()
                     clicked = False
-                    for item in current_items:
+                    normalized_target = normalize_text(full_text)
+                    items = page.locator("div[role='button'], button")
+                    count = items.count()
+
+                    for i in range(count):
+                        item = items.nth(i)
                         try:
-                            if item.inner_text().replace("\n", " ").strip() == full_text:
-                                item.get_by_text(keyword, exact=False).first.click(timeout=settings['click_transaction_timeout'])
-                                clicked = True
-                                print(f"  ✓ Transaktion geöffnet")
-                                break
-                        except Exception as e:
+                            ui_text = normalize_text(item.inner_text())
+                            if ui_text != normalized_target:
+                                continue
+                            type_element = item.get_by_text(keyword, exact=True).first
+                            type_element.scroll_into_view_if_needed(timeout=2000)
+                            time.sleep(0.1)
+                            type_element.click(timeout=settings['click_transaction_timeout'])
+                            clicked = True
+                            print("  ✓ Transaktion geöffnet")
+                            break
+                        except Exception:
                             continue
-                    
+
                     if not clicked:
-                        print(f"  ✗ Transaktion nicht gefunden, überspringe")
+                        print("  ✗ Transaktion nicht gefunden, überspringe")
                         save_error_screenshot(page, DOWNLOAD_DIR, full_text, "missing_transaction")
                         continue
                 except Exception as e:
@@ -469,6 +489,7 @@ def run_downloader():
                 
                 time.sleep(settings['transaction_wait'])
                 
+                # PDF-Button finden
                 pdf_btn = None
                 found_button_name = None
                 for btn_text in PDF_BUTTON_NAMES:
@@ -492,52 +513,119 @@ def run_downloader():
                     page.keyboard.press("Escape")
                     continue
 
-                pdf_url = None
-
-                try:
-                    print(f"  -> Öffne PDF-Tab...")
-                    with context.expect_page(timeout=settings['pdf_tab_timeout']) as new_page_info:
-                        pdf_btn.click()
-                    new_tab = new_page_info.value
-                    pdf_url = new_tab.url
-                    print(f"  ✓ PDF-URL aus Tab: {pdf_url[:60]}...")
-                    new_tab.close()
-                except Exception as e:
-                    print(f"  ✗ PDF-Tab konnte nicht geöffnet werden: {e}")
+                # === NEU V2.06 ==============================================
+                # VORABPAUSCHALE: Spezielles Element klicken
+                # ============================================================
+                is_vorabpauschale = (keyword == "Steuern" and found_button_name == "Vorabpauschale")
+                
+                if is_vorabpauschale:
+                    print("  -> Vorabpauschale erkannt, verwende speziellen Selektor...")
                     try:
-                        page.keyboard.press("Escape")
-                    except:
-                        pass
-                    continue
+                        # Spezial-Element für Vorabpauschale finden
+                        vp_element = page.locator('[data-testid="value-Vorabpauschale"]').first
+                        vp_element.wait_for(state="visible", timeout=2000)
+                        
+                        # PDF-Tab öffnen
+                        with context.expect_page(timeout=settings['pdf_tab_timeout']) as new_page_info:
+                            vp_element.click(timeout=settings['pdf_button_timeout'])
+                        new_tab = new_page_info.value
+                        pdf_url = new_tab.url
+                        print(f"  ✓ PDF-URL aus Tab: {pdf_url[:60]}...")
+                        new_tab.close()
+                    except Exception as e:
+                        print(f"  ✗ Vorabpauschale-Element nicht gefunden: {e}")
+                        try:
+                            page.keyboard.press("Escape")
+                        except:
+                            pass
+                        continue
                 
+                # ============================================================
+                # STANDARD: Normaler PDF-Button
+                # ============================================================
+                else:
+                    pdf_url = None
+                    try:
+                        print(f"  -> Öffne PDF-Tab...")
+                        with context.expect_page(timeout=settings['pdf_tab_timeout']) as new_page_info:
+                            pdf_btn.click(timeout=settings['pdf_button_timeout'])
+                        new_tab = new_page_info.value
+                        pdf_url = new_tab.url
+                        print(f"  ✓ PDF-URL aus Tab: {pdf_url[:60]}...")
+                        new_tab.close()
+                    except Exception as e:
+                        print(f"  ✗ PDF-Tab konnte nicht geöffnet werden: {e}")
+                        try:
+                            page.keyboard.press("Escape")
+                        except:
+                            pass
+                        continue
+                
+                # ============================================================
+                # AB HIER: Gemeinsame Logik für alle PDFs
+                # ============================================================
+                
+                # Dateiname erstellen
                 url_without_params = pdf_url.split("?")[0] if pdf_url else ""
-                match = re.search(r'(\d{4}-\d{2}-\d{2})-.+?-([A-Z]{2}[A-Z0-9]{10})', url_without_params)
-                date_str = match.group(1) if match else datetime.now().strftime("%Y-%m-%d")
-                isin_str = match.group(2) if match else "UNKNOWN"
                 
-                if not match:
-                    print(f"  ⚠ Konnte Datum/ISIN nicht aus URL parsen: {url_without_params}")
-
-                wp_name = re.sub(r'\(.*?\)', '', full_text)
-                betrag_m = re.findall(r'(-?\d+[\.,]\d{2})', full_text)
-                betrag = betrag_m[-1].replace(",", "-").replace(".", "-") if betrag_m else "0-00"
-                pattern2 = r'-?\d+[\.,]\d{2}.*$'
-                wp_name = re.sub(pattern2, '', wp_name).strip()
-                if wp_name.startswith(keyword): 
-                    wp_name = wp_name[len(keyword):].strip()
-                wp_name_clean = "_".join(wp_name.replace("€", "").replace(",", "-").replace(":", "").replace("/", "-").split())
+                # Vorabpauschale: Spezielle Namenslogik
+                if is_vorabpauschale:
+                    vp_text = full_text
+                    if vp_text.startswith("Steuern "):
+                        vp_text = vp_text[8:].strip()
+                    
+                    isin_match = re.search(r'\(([A-Z]{2}[A-Z0-9]{10})\)', vp_text)
+                    isin_str = isin_match.group(1) if isin_match else "UNKNOWN"
+                    identifier_str = convert_isin_to_wkn(isin_str, WKN_MAPPING)
+                    
+                    wp_name = re.sub(r'\(.*?\)', '', vp_text)
+                    wp_name = wp_name.replace("Vorabpauschale:", "").strip()
+                    wp_name_clean = "_".join(wp_name.split())
+                    wp_name_clean = re.sub(r'[^\w\s-]', '_', wp_name_clean)
+                    
+                    # Original-Dateiname vom Server holen
+                    original_name = filename_from_url(url_without_params)
+                    if original_name:
+                        # Original-Name ohne .pdf Extension
+                        original_base = original_name.rsplit('.pdf', 1)[0] if original_name.endswith('.pdf') else original_name
+                        final_file_name = f"{original_base}-{identifier_str}-{wp_name_clean}.pdf"
+                    else:
+                        # Fallback falls kein Original-Name verfügbar
+                        current_year = datetime.now().year
+                        date_str = f"{current_year}-01-02"
+                        final_file_name = f"{date_str}-Vorabpauschale-{identifier_str}-{wp_name_clean}.pdf"
                 
-                # ========== NEU V2.02 GEÄNDERT: identifier_str statt isin_str ==========
-                identifier_str = convert_isin_to_wkn(isin_str, WKN_MAPPING)
-                final_file_name = f"{date_str}-{keyword[:4]}-{identifier_str}-{wp_name_clean}-{betrag}.pdf"
-                # optional: Original-Dateiname vom Server ermitteln
-                if settings['use_original_filename']:
-                    final_file_name = filename_from_url(url_without_params) or final_file_name
+                
+                # Standard: Normale Namenslogik
+                else:
+                    match = re.search(r'(\d{4}-\d{2}-\d{2})-.+?-([A-Z]{2}[A-Z0-9]{10})', url_without_params)
+                    date_str = match.group(1) if match else datetime.now().strftime("%Y-%m-%d")
+                    isin_str = match.group(2) if match else "UNKNOWN"
+                    
+                    if not match:
+                        print(f"  ⚠ Konnte Datum/ISIN nicht aus URL parsen: {url_without_params}")
 
-                # Zielpfad festlegen
+                    wp_name = re.sub(r'\(.*?\)', '', full_text)
+                    betrag_m = re.findall(r'(-?\d+[\.,]\d{2})', full_text)
+                    betrag = betrag_m[-1].replace(",", "-").replace(".", "-") if betrag_m else "0-00"
+                    pattern2 = r'-?\d+[\.,]\d{2}.*$'
+                    wp_name = re.sub(pattern2, '', wp_name).strip()
+                    if wp_name.startswith(keyword): 
+                        wp_name = wp_name[len(keyword):].strip()
+                    wp_name_clean = "_".join(wp_name.replace("€", "").replace(",", "-").replace(":", "").replace("/", "-").split())
+                    
+                    identifier_str = convert_isin_to_wkn(isin_str, WKN_MAPPING)
+                    final_file_name = f"{date_str}-{keyword[:4]}-{identifier_str}-{wp_name_clean}-{betrag}.pdf"
+                
+                # Optional: Original-Dateiname verwenden (NICHT bei Vorabpauschale!)
+                if settings['use_original_filename'] and not is_vorabpauschale:
+                    original_name = filename_from_url(url_without_params)
+                    if original_name:
+                        final_file_name = original_name
+
                 target_path = os.path.join(DOWNLOAD_DIR, final_file_name)
 
-                # Duplikatsprüfung vor Download
+                # Duplikatsprüfung
                 if os.path.exists(target_path):
                     print(f"  -> ✓ Bereits vorhanden: {final_file_name}")
                     skipped += 1
@@ -554,7 +642,7 @@ def run_downloader():
                         pass
                     continue
 
-                # erst jetzt PDF herunterladen
+                # PDF herunterladen
                 try:
                     print("  -> Lade PDF herunter...")
                     response = page.request.get(pdf_url)
@@ -593,7 +681,6 @@ def run_downloader():
                     
             except Exception as e: 
                 timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-                
                 wp_extract = re.sub(r'\(.*?\)', '', full_text)
                 pattern3 = r'-?\d+[\.,]\d{2}.*$'
                 wp_extract = re.sub(pattern3, '', wp_extract).strip()
