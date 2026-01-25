@@ -40,6 +40,7 @@ und prüfen lassen, was der Code wirklich macht.
 # Update-Hinweis
 
 Da sich teilweise der Funktionsumfang ändert und damit einhergehend Einträge in der INI ergänzt wurden, empfehle ich bei einem Update auch die neuste INI runterzuladen und die Einträge aus der alten zu übertragen
+Zum Download der PDFs für Vorabpauschale wird Programm und INI der Version 2.06 benötigt!
 	
 # Für Poweruser (Skript-Modus)
 
@@ -221,4 +222,5 @@ If Scalable changes the text on the website, you can adjust them here. Otherwise
 
 It’s best to leave these alone as well!
 If a timeout occurs, you can experimentally increase the times here.
+
 
