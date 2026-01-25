@@ -11,7 +11,10 @@ V2.01 Option to load all Documents, not only the new ones
 V2.02 Translation ISIN to WKN
 V2.03 Bug with "get_documents = False" fixed
 V2.04 could now hanlde more than 50 Transactions
-      added option to open download directory after completion
+      add option to open download folder on exit
 V2.05 Inline comments in INI allowed
+V2.06 more stable timing
+      add special handling for Vorabpauschale 
+	  
 
 
