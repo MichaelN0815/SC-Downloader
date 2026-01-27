@@ -39,7 +39,7 @@ und prüfen lassen, was der Code wirklich macht.
 
 # Update-Hinweis
 
-Da sich teilweise der Funktionsumfang ändert und damit einhergehend Einträge in der INI ergänzt wurden, empfehle ich bei einem Update auch die neuste INI runterzuladen und die Einträge aus der alten zu übertragen
+Da sich teilweise der Funktionsumfang ändert und damit einhergehend Einträge in der INI ergänzt wurden, empfehle ich bei einem Update auch die neuste INI runterzuladen und die geänderten Einstellungen dort nochmal vorzunehmen. 
 Zum Download der PDFs für Vorabpauschale wird Programm und INI der Version 2.06 benötigt!
 	
 # Für Poweruser (Skript-Modus)
@@ -95,8 +95,11 @@ logout_after_run: Meldet den Benutzer nach Abschluss aller Aktionen automatisch 
 **[Keywords]**
 
 transaction_types: Komma-getrennte Liste der Begriffe, die heruntergeladen werden sollen (Standard: Ausschüttung, Kauf, Verkauf, Sparplan, Steuern)
+
 Die Namen der Typen entsprechen dem Filter "Auftragstyp" in Scalable
+
 Bei manchen Transaktionen gibt es kein PDF - dann wird das Programm einen Fehler-Screenshot speichern!
+
 Es gibt Transaktionen, die haben in der Filterliste einen anderen Namen, als dann in der gefilterten Liste angezeigt wird. 
 z.B. "Depotübertrag" im Filter und "Einlieferung" in der Liste. Dann muss man unter transaction_types beide eintragen.  
 
@@ -106,11 +109,12 @@ diese Sektion kann mit einer Übersetzungstabelle ISIN zu WKN gefüllt werden
 Sie kommt nur zum Einsatz wenn die Option use_original_filename = False ist
 Wird eine ISIN gefunden, dann wird sie durch die angegebene WKN ersetzt
 Wird die ISIN nicht gefunden, wird weiterhin die ISIN von Scalable genutzt
+Es ist hier zulässig Kommentare mit # oder ; anzufügen
 
 Beispiel:
 
-	LU2572257124 = ETF018
-	LU0496786657 = LYX0FZ
+	LU2572257124 = ETF018 # Amundi Core MSCI World
+	LU0496786657 = LYX0FZ ; Amundi Core S&P 500
 
 **[ButtonTexts]**
 
@@ -222,5 +226,6 @@ If Scalable changes the text on the website, you can adjust them here. Otherwise
 
 It’s best to leave these alone as well!
 If a timeout occurs, you can experimentally increase the times here.
+
 
 
