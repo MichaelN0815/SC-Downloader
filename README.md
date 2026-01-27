@@ -76,7 +76,7 @@ oder die SC-Downloader.bat
 
 **[General]**
 
-max_transactions: Maximale Anzahl der Transaktionen, die das Skript versucht zu laden (Standard: 20).
+max_transactions: Maximale Anzahl der PDF aus dem Bereich Transaktionen, die verarbeitet werden sollen (Standard: 20; getestet bis 500).
 
 download_directory: Name des Ordners oder kompletter Pfad, in dem die PDFs gespeichert werden (Standard: Scalable_Downloads).
 
@@ -84,11 +84,11 @@ stop_at_first_duplicate: Wenn "True", bricht das Skript ab, sobald die erste ber
 
 use_original_filename: Bei "True" wird der Name von Scalable beibehalten; bei "False" wird die sprechende Benennung genutzt (Standard: False).
 
-get_documents: Bei "True" werden auch die Dokumente aus der Mailbox heruntergeladen (Standard: True)
+get_documents: Bei "True" werden auch die Dokumente aus dem Bereich Mailbox heruntergeladen (Standard: True)
 
 only_new_docs: Bei "True" werden nur die als neu markierten Dokumente geladen (Standard: True)
 
-max_documents = Anzahl der Dokumente die maximal aus der Mailbox geladen werden sollen (Standard: 20)
+max_documents = maximale Anzahl der Dokumente aus der Mailbox, die geladen werden sollen (Standard: 20)
 
 logout_after_run: Meldet den Benutzer nach Abschluss aller Aktionen automatisch ab (Standard: True).
 
@@ -226,6 +226,7 @@ If Scalable changes the text on the website, you can adjust them here. Otherwise
 
 It’s best to leave these alone as well!
 If a timeout occurs, you can experimentally increase the times here.
+
 
 
 
