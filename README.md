@@ -1,5 +1,6 @@
 ![SC-Icon](https://github.com/user-attachments/assets/c9fdfd75-ba4b-47e6-bdbd-eb000ce26566)
-# Scalable Capital PDF Downloader  ![Downloads](https://img.shields.io/github/downloads/MichaelN0815/SC-Downloader/total?style=flat-square&color=blue)
+# Scalable Capital PDF Downloader  ![GitHub Release](https://img.shields.io/github/v/release/MichaelN0815/SC-Downloader)
+![Downloads](https://img.shields.io/github/downloads/MichaelN0815/SC-Downloader/total?style=flat-square&color=blue) ![GitHub Downloads (all assets, latest release)](https://img.shields.io/github/downloads/MichaelN0815/SC-Downloader/latest/total)
 
 Deutsch | English see below
 
@@ -16,6 +17,14 @@ Ein Tool zum automatisierten Herunterladen von Wertpapierabrechnungen (Kauf, Ver
 - Unterstützt den manuellen Login inklusive Zwei-Faktor-Authentifizierung
 - Als EXE-Version inklusive Browser verfügbar (keine Python-Installation nötig)
 
+# Update-Hinweis
+
+>[!IMPORTANT]
+>Da sich teilweise der Funktionsumfang ändert und damit einhergehend Einträge in der INI ergänzt wurden, empfehle ich bei einem Update auch die neuste INI runterzuladen und die geänderten Einstellungen dort nochmal vorzunehmen. 
+>
+>Zum Download der PDFs für Vorabpauschale wird Programm und INI der **Version 2.06** benötigt!
+>
+>**Version 2.07** generiert nun sauberere Dateinamen ohne unnötige Sonderzeichen - dadurch bedingt wird der erste Abruf auch mit der Einstellung `stop_at_first_duplicate = True` nochmal die gleichen PDFs runterladen - weil sich der selbst erstellte Dateiname leicht geändert hat. 
 
 ![Screenshot1](https://github.com/user-attachments/assets/b19e3dd1-a223-451a-9c71-e818014113f3)
 ![Screenshot2](https://github.com/user-attachments/assets/adfc9cc7-d083-4464-b9a9-a215537dde52)
@@ -30,38 +39,34 @@ In der INI-Datei kann man verschiedene Optionen konfigurieren, siehe Abschnitt I
 Hierzu lädt man sich am besten die kommentierte INI-Datei aus dem Projekt runter. 
 Damit lässt es sich bequemer arbeiten, als mit der automatisch generierten. 
 Die INI-Datei kann einfach mit dem Texteditor bearbeitet werden. 
-Alles was mit # beginnt ist ein Kommentar und hat keine Funktion. 
+Alles was mit `#` beginnt ist ein Kommentar und hat keine Funktion. 
 
-Hinweis: 
-Ich verstehe, wenn man ein ungutes Gefühl hat eine unbekannte EXE auf seinen Rechner und noch dazu sein Depot loszulassen. 
-Daher steht auch der Python Quellcode zur Verfügung. Diesen kann man auch als Python Unkundiger von einer KI der Wahl einem Code-Review unterziehen
-und prüfen lassen, was der Code wirklich macht. 
-
-# Update-Hinweis
-
-Da sich teilweise der Funktionsumfang ändert und damit einhergehend Einträge in der INI ergänzt wurden, empfehle ich bei einem Update auch die neuste INI runterzuladen und die geänderten Einstellungen dort nochmal vorzunehmen. 
-Zum Download der PDFs für Vorabpauschale wird Programm und INI der Version 2.06 benötigt!
+>[!TIP]
+>Hinweis: 
+>Ich verstehe, wenn man ein ungutes Gefühl hat eine unbekannte EXE auf seinen Rechner und noch dazu sein Depot loszulassen. 
+>Daher steht auch der Python Quellcode zur Verfügung. Diesen kann man auch als Python Unkundiger von einer KI der Wahl einem Code-Review unterziehen
+>und prüfen lassen, was der Code wirklich macht. 
 	
 # Für Poweruser (Skript-Modus)
 
-Python 3.12+ installieren.
+* Python 3.12+ installieren.
 
-Projekt-Ordner erstellen und downloader.py sowie start_downloader.bat hineinkopieren.
-ggf. auch die INI wenn man vor dem ersten Start bereits Parameter anpassen will. Ansonsten wird die INI automatisch erstellt.
+* Projekt-Ordner erstellen und downloader.py sowie start_downloader.bat hineinkopieren.
+Ggf. auch die INI wenn man vor dem ersten Start bereits Parameter anpassen will. Ansonsten wird die INI automatisch erstellt.
 
-Bibliotheken installieren: 
+* Bibliotheken installieren: 
 
-	pip install playwright
+	`pip install playwright`
 
-Browser installieren:
+* Browser installieren:
 
-	playwright install chromium
+	`playwright install chromium`
 
-Starten über
+* Starten über
 
-	python downloader.py
+	`python downloader.py`
 	
-oder die SC-Downloader.bat
+* oder die SC-Downloader.bat
 
 # Hinweise
 
@@ -72,29 +77,29 @@ oder die SC-Downloader.bat
   dann ist es möglich ohne Login mit diesen Session Daten Scalable aufzurufen, bis das Timeout bei Scalable greift. 
   Ggf. sollte man den Ordner löschen, wenn man absolut sicher gehen will. 
 	
-# === INI Parameter ===	
+# INI Parameter
 
 **[General]**
 
-max_transactions: Maximale Anzahl der PDF aus dem Bereich Transaktionen, die verarbeitet werden sollen (Standard: 20; getestet bis 500).
+`max_transactions` Maximale Anzahl der PDF aus dem Bereich Transaktionen, die verarbeitet werden sollen (Standard: 20; getestet bis 500).
 
-download_directory: Name des Ordners oder kompletter Pfad, in dem die PDFs gespeichert werden (Standard: Scalable_Downloads).
+`download_directory` Name des Ordners oder kompletter Pfad, in dem die PDFs gespeichert werden (Standard: Scalable_Downloads).
 
-stop_at_first_duplicate: Wenn "True", bricht das Skript ab, sobald die erste bereits vorhandene Datei gefunden wird (Standard: False).
+`stop_at_first_duplicate` Wenn "True", bricht das Skript ab, sobald die erste bereits vorhandene Datei gefunden wird (Standard: False).
 
-use_original_filename: Bei "True" wird der Name von Scalable beibehalten; bei "False" wird die sprechende Benennung genutzt (Standard: False).
+`use_original_filename` Bei "True" wird der Name von Scalable beibehalten; bei "False" wird die sprechende Benennung genutzt (Standard: False).
 
-get_documents: Bei "True" werden auch die Dokumente aus dem Bereich Mailbox heruntergeladen (Standard: True)
+`get_documents` Bei "True" werden auch die Dokumente aus dem Bereich Mailbox heruntergeladen (Standard: True)
 
-only_new_docs: Bei "True" werden nur die als neu markierten Dokumente geladen (Standard: True)
+`only_new_docs` Bei "True" werden nur die als neu markierten Dokumente geladen (Standard: True)
 
-max_documents = maximale Anzahl der Dokumente aus der Mailbox, die geladen werden sollen (Standard: 20)
+`max_documents` maximale Anzahl der Dokumente aus der Mailbox, die geladen werden sollen (Standard: 20)
 
-logout_after_run: Meldet den Benutzer nach Abschluss aller Aktionen automatisch ab (Standard: True).
+`logout_after_run` Meldet den Benutzer nach Abschluss aller Aktionen automatisch ab (Standard: True).
 
 **[Keywords]**
 
-transaction_types: Komma-getrennte Liste der Begriffe, die heruntergeladen werden sollen (Standard: Ausschüttung, Kauf, Verkauf, Sparplan, Steuern)
+`transaction_types` Komma-getrennte Liste der Begriffe, die heruntergeladen werden sollen (Standard: Ausschüttung, Kauf, Verkauf, Sparplan, Steuern)
 
 Die Namen der Typen entsprechen dem Filter "Auftragstyp" in Scalable
 
@@ -125,7 +130,7 @@ Wenn Scalable mal die Texte in der Webseite ändert, kann man die hier anpassen.
 Auch hier besser Finger weg!
 Wenn es zu einem Abbruch wegen Timeout kommt, kann man hier die Zeiten experimentell verlängern
 
-# ===  english version ====
+# ===  english version ==== 
 
 A tool for automated downloading transaction files (Buy, Sell, Savings Plan, Dividend) and document files from Scalable Capital.
 Features
@@ -157,17 +162,17 @@ If necessary, also copy the INI file if you want to adjust parameters before the
 Install libraries:
 
 
-	pip install playwright
+	`pip install playwright`
 
 
 Install browser:
 
 
-	playwright install chromium
+	`playwright install chromium`
 
 Start via
 
-	python downloader.py
+	`python downloader.py`
 
 or the SC-Downloader.bat.
 
