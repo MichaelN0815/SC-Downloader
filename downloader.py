@@ -2,11 +2,12 @@
 # -*- coding: utf-8 -*-
 """
 Scalable Capital PDF Downloader
-robustere Click auf Transaktion
-Sonderbehandlung Vorabpauschale
+INI Vorgaben für Vorabpauschale angepasst
+Dateinamen Generierung aufgeräumt
+neue Docs in Mailbox korrekt identifizieren
 """
 
-__version__ = "2.06"
+__version__ = "2.07"
 
 import os
 import sys
@@ -37,7 +38,7 @@ DEFAULT_CONFIG = {
     'only_new_docs': 'True',
     'slow_mo': '100',
     'transaction_types': 'Ausschüttung, Kauf, Verkauf, Sparplan, Steuern',
-    'pdf_button_names': 'Wertpapierabrechnung, Wertpapierereignisse',
+    'pdf_button_names': 'Wertpapierabrechnung, Wertpapierereignisse, Vorabpauschale',
     'logout_button': 'Abmelden',
     'page_load_wait': '100',
     'transaction_wait': '300',
@@ -105,6 +106,41 @@ def convert_isin_to_wkn(isin_str, wkn_mapping):
     if isin_upper in wkn_mapping:
         return wkn_mapping[isin_upper]
     return isin_str
+
+# NEU V2.07
+def sanitize_filename(filename):
+    """
+    Bereinigt den generierten Dateinamen nach festen Regeln:
+    - Dezimalpunkt wird durch "_" ersetzt
+    - Punkte von Abkürzungen (z.B. "Pkt.") werden entfernt
+    - Trenner ist "-"
+    - Aufeinanderfolgende "_" oder "-" werden zu einem Zeichen reduziert
+    - "_" hat Vorrang vor "-" (bei aufeinanderfolgenden gemischten Trennern)
+    - "_" oder "-" unmittelbar vor .pdf werden entfernt
+    """
+    # Entferne .pdf temporär
+    has_pdf = filename.lower().endswith('.pdf')
+    if has_pdf:
+        filename = filename[:-4]
+    
+    # Ersetze Dezimalpunkt durch "_" (nur wenn von Zahlen umgeben)
+    filename = re.sub(r'(\d)\.(\d)', r'\1_\2', filename)
+    
+    # Entferne alle anderen Punkte (z.B. von Abkürzungen wie "Pkt.")
+    filename = filename.replace('.', '')
+    
+    # Normalisiere alle Trennzeichen: aufeinanderfolgende _ und/oder - zu einem Zeichen
+    # Dabei hat "_" Vorrang vor "-"
+    filename = re.sub(r'[-_]+', lambda m: '_' if '_' in m.group() else '-', filename)
+    
+    # Entferne Trennzeichen am Ende
+    filename = filename.rstrip('_-')
+    
+    # .pdf wieder anhängen
+    if has_pdf:
+        filename += '.pdf'
+    
+    return filename
 
 def load_config():
     # NEU V2.05: Inline Kommentare in INI erlaubt
@@ -351,7 +387,7 @@ def run_downloader():
     with sync_playwright() as p:
         context = p.chromium.launch_persistent_context(
             SESSION_DIR, 
-            headless=False, 
+            headless=False,
             slow_mo=settings['slow_mo'],
             accept_downloads=True
         )
@@ -607,7 +643,7 @@ def run_downloader():
 
                     wp_name = re.sub(r'\(.*?\)', '', full_text)
                     betrag_m = re.findall(r'(-?\d+[\.,]\d{2})', full_text)
-                    betrag = betrag_m[-1].replace(",", "-").replace(".", "-") if betrag_m else "0-00"
+                    betrag = betrag_m[-1].replace(",", "_").replace(".", "_") if betrag_m else "0_00"
                     pattern2 = r'-?\d+[\.,]\d{2}.*$'
                     wp_name = re.sub(pattern2, '', wp_name).strip()
                     if wp_name.startswith(keyword): 
@@ -616,6 +652,9 @@ def run_downloader():
                     
                     identifier_str = convert_isin_to_wkn(isin_str, WKN_MAPPING)
                     final_file_name = f"{date_str}-{keyword[:4]}-{identifier_str}-{wp_name_clean}-{betrag}.pdf"
+                
+                # NEU V2.07 Dateinamen bereinigen
+                final_file_name = sanitize_filename(final_file_name)
                 
                 # Optional: Original-Dateiname verwenden (NICHT bei Vorabpauschale!)
                 if settings['use_original_filename'] and not is_vorabpauschale:
@@ -737,19 +776,34 @@ def run_downloader():
                         all_rows = page.locator('[data-mailbox-item-subject]').filter(has=page.locator('[data-testid="mailbox-download"]')).all()
                         print(f"[v{__version__}] {len(all_rows)} Dokument(e) gefunden.")
                     else:
-                        # PRODUKTIV-MODUS: Nur Zeilen mit spezifischer Farbe
-                        # Finde das äußere Presentation-Div und prüfe auf Farbe
-                        all_presentation_divs = page.locator('div[role="presentation"][style*="background-color"]').all()
+                        # only-new-MODUS: Nur Zeilen mit spezifischer Farbe
+                        # NEU V2.07 
+                        # Finde alle Dokumentzeilen mit Download-Symbol
+                        candidate_rows = page.locator(
+                            '[data-mailbox-item-subject]'
+                        ).filter(
+                            has=page.locator('[data-testid="mailbox-download"]')
+                        )
+
                         all_rows = []
-                        for div in all_presentation_divs:
+
+                        for i in range(candidate_rows.count()):
+                            row = candidate_rows.nth(i)
                             try:
-                                style = div.get_attribute('style')
-                                if style and ('#28EBCF' in style or 'rgb(40, 235, 207)' in style):
-                                    # Prüfe ob diese Zeile ein Download-Symbol hat
-                                    if div.locator('[data-testid="mailbox-download"]').count() > 0:
-                                        all_rows.append(div)
+                                # Letzte Grid-Spalte (Status / Neu-Indikator)
+                                status_cell = row.locator('div.MuiGrid-grid-xs-1').last
+
+                                # Prüfen, ob dort ein sichtbares Element existiert
+                                indicator = status_cell.locator('*')
+
+                                if indicator.count() > 0:
+                                    # optional: Sichtbarkeit absichern
+                                    if indicator.first.is_visible():
+                                        all_rows.append(row)
+
                             except Exception:
                                 continue
+                        # ENDE NEU V2.07
                         print(f"[v{__version__}] {len(all_rows)} Dokument(e) mit Neu-Kennzeichnung gefunden.")
                 except Exception as e:
                     print(f"  ✗ Fehler beim Laden der Dokumentenliste: {e}")
