@@ -2,12 +2,10 @@
 # -*- coding: utf-8 -*-
 """
 Scalable Capital PDF Downloader
-INI Vorgaben für Vorabpauschale angepasst
-Dateinamen Generierung aufgeräumt
-neue Docs in Mailbox korrekt identifizieren
+credentials unter Windows speichern
 """
 
-__version__ = "2.07"
+__version__ = "2.08"
 
 import os
 import sys
@@ -17,6 +15,7 @@ import re
 # NEU V2.04b
 import platform
 import subprocess
+
 from datetime import datetime
 from playwright.sync_api import sync_playwright
 from urllib.parse import urlparse, unquote
@@ -26,6 +25,7 @@ from urllib.parse import urlparse, unquote
 TARGET_URL = "https://de.scalable.capital/broker/transactions"
 TARGET_URL2 = "https://de.scalable.capital/cockpit/mailbox"
 DOWNLOAD_DIR = None  # NEU V2.04b Global
+SERVICE_NAME = "scalable_login" # NEU V2.08
 
 DEFAULT_CONFIG = {
     'max_transactions': '20',
@@ -34,6 +34,7 @@ DEFAULT_CONFIG = {
     'use_original_filename': 'False',
     'stop_at_first_duplicate': 'False',
     'logout_after_run': 'True',
+    'use_saved_credentials': 'False',
     'get_documents': 'True',
     'only_new_docs': 'True',
     'slow_mo': '100',
@@ -72,6 +73,72 @@ def ensure_browser():
         print(f"  ✗ FEHLER: Browser nicht gefunden: {e}")
         input("\nDrücke Enter zum Beenden...")
         sys.exit(1)
+
+# ========== NEU V2.08: Zugangsdaten speichern ======
+def ensure_credentials(use_saved_credentials):
+    """
+    Lädt oder erstellt Zugangsdaten im Windows Credential Manager
+    
+    Returns:
+        tuple: (username, password) oder (None, None) wenn deaktiviert/nicht verfügbar
+    """
+    # Feature nur für Windows
+    if platform.system() != "Windows":
+        if use_saved_credentials:
+            print("  ⚠ Gespeicherte Credentials nur unter Windows verfügbar")
+        return None, None
+    
+    # Feature deaktiviert
+    if not use_saved_credentials:
+        return None, None
+
+    # Keyring erst hier importieren (nur wenn benötigt)
+    try:
+        import keyring
+    except ImportError:
+        print("  ✗ FEHLER: 'keyring' Modul nicht installiert!")
+        print("  → Bitte ausführen: pip install keyring")
+        return None, None
+        
+    try:
+        # Versuche Credentials zu laden
+        username = keyring.get_password(SERVICE_NAME, "username")
+        password = keyring.get_password(SERVICE_NAME, "password")
+        
+        # Credentials vorhanden
+        if username and password:
+            print(f"  ✓ Zugangsdaten aus Windows Credential Manager geladen")
+            return username, password
+        
+        # Credentials nicht vorhanden - erstmalig abfragen
+        print("\n" + "="*60)
+        print("ERSTMALIGE EINRICHTUNG - Zugangsdaten speichern")
+        print("="*60)
+        print("Die Daten werden verschlüsselt im Windows Credential Manager")
+        print("gespeichert und bei zukünftigen Starts automatisch geladen.")
+        print("="*60)
+        
+        username = input("\nBenutzername (E-Mail): ").strip()
+        password = input("Passwort: ").strip()
+        
+        if not username or not password:
+            print("  ⚠ Keine gültigen Zugangsdaten eingegeben")
+            return None, None
+        
+        # Im Windows Credential Manager speichern
+        keyring.set_password(SERVICE_NAME, "username", username)
+        keyring.set_password(SERVICE_NAME, "password", password)
+        
+        print(f"\n  ✓ Zugangsdaten erfolgreich gespeichert!")
+        print(f"\nZum Löschen/Ändern:")
+        print(f"Systemsteuerung → Anmeldeinformationsverwaltung → Windows-Anmeldeinformationen")
+        print(f"Suche nach: {SERVICE_NAME}\n")
+        
+        return username, password
+        
+    except Exception as e:
+        print(f"  ✗ Fehler beim Credential Manager: {e}")
+        return None, None
 
 # ========== NEU V2.02: WKN-Mapping laden ==========
 def load_wkn_mapping(config):
@@ -159,6 +226,7 @@ def load_config():
             'use_original_filename': DEFAULT_CONFIG['use_original_filename'],
             'stop_at_first_duplicate': DEFAULT_CONFIG['stop_at_first_duplicate'],
             'logout_after_run': DEFAULT_CONFIG['logout_after_run'],
+            'use_saved_credentials': DEFAULT_CONFIG['use_saved_credentials'],
             'get_documents': DEFAULT_CONFIG['get_documents'],
             'only_new_docs': DEFAULT_CONFIG['only_new_docs']
         }
@@ -198,6 +266,7 @@ def load_config():
         'use_original_filename': config.getboolean('General', 'use_original_filename', fallback=False),
         'stop_at_first_duplicate': config.getboolean('General', 'stop_at_first_duplicate', fallback=False),
         'logout_after_run': config.getboolean('General', 'logout_after_run', fallback=True),
+        'use_saved_credentials': config.getboolean('General', 'use_saved_credentials', fallback=False),
         'get_documents': config.getboolean('General', 'get_documents', fallback=True),
         'only_new_docs': config.getboolean('General', 'only_new_docs', fallback=True),
         'keywords': [k.strip() for k in config.get('Keywords', 'transaction_types', fallback=DEFAULT_CONFIG['transaction_types']).split(',')],
@@ -405,13 +474,33 @@ def run_downloader():
         handle_popups(page)
 
         if "login" in page.url:
-            print("Warte auf manuellen Login (2FA)...")
+            # NEU V2.08 Versuche Auto-Fill falls aktiviert
+            if settings['use_saved_credentials']:
+                username, password = ensure_credentials(settings['use_saved_credentials'])
+                
+                if username and password:
+                    try:
+                        print("  → Fülle Login-Daten aus...")
+                        page.fill('#username', username, timeout=500)
+                        page.fill('#password', password, timeout=500)
+                        # Login-Button klicken
+                        page.get_by_role("button", name="Login").click() # Selektor über Text
+                        print("  ✓ Login-Daten ausgefüllt - Bitte 2FA in der App bestätigen")
+                    except Exception as e:
+                        print(f"  ⚠ Auto-Fill fehlgeschlagen: {e}")
+                        print("  → Bitte komplett manuell einloggen")
+                else:
+                    print("  → Bitte manuell einloggen")
+            else:
+                print("Warte auf manuellen Login (2FA)...")
+            
+            # Warte auf erfolgreichen Login (wie bisher)
             try:
                 page.wait_for_url(re.compile(r".*/(cockpit|transactions|dashboard|broker)/.*"), timeout=0)
                 print("  ✓ Login erkannt.")
             except Exception as e:
                 print(f"  ⚠ Login-Warnung: {e}")
-            
+                    
             handle_popups(page)
             
             if TARGET_URL not in page.url:
