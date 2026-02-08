@@ -3,18 +3,23 @@
 """
 Scalable Capital PDF Downloader
 credentials unter Windows speichern
+fehlerhafte INI abfangen
+fehlerhaften Pfad abfangen
+fehlerfafte WKN Beispiele in INI korrigiert
+automatisch Beenden wenn kein Login erfolgt
+Cookie Popup automatisch schliessen
 """
 
-__version__ = "2.08"
+__version__ = "2.09"
 
 import os
 import sys
 import time
 import configparser
 import re
-# NEU V2.04b
 import platform
 import subprocess
+import tempfile
 
 from datetime import datetime
 from playwright.sync_api import sync_playwright
@@ -216,8 +221,20 @@ def load_config():
         comment_prefixes=('#', ';')
     )
     if os.path.exists(CONFIG_PATH):
-        config.read(CONFIG_PATH, encoding='utf-8')
-        print(f"[v{__version__}] Konfiguration geladen: {CONFIG_PATH}")
+        try:
+            config.read(CONFIG_PATH, encoding='utf-8')
+            print(f"[v{__version__}] Konfiguration geladen: {CONFIG_PATH}")
+        except (configparser.DuplicateOptionError, configparser.ParsingError, Exception) as e:
+            # NEU V2.09 INI Fehler abfangen
+            print(f"\n{'='*60}")
+            print(f" ⚠  FEHLER beim Laden der Konfiguration!  ⚠")
+            print(f"{'='*60}")
+            print(f"\033[91m{e}\033[0m")
+            print(f"\n→ Bitte überprüfe die Datei:")
+            print(f"   {CONFIG_PATH}")
+            print(f"{'='*60}\n")
+            input(" ⚠  Drücke Enter zum Beenden...")
+            sys.exit(1)
     else:
         config['General'] = {
             'max_transactions': DEFAULT_CONFIG['max_transactions'],
@@ -231,6 +248,11 @@ def load_config():
             'only_new_docs': DEFAULT_CONFIG['only_new_docs']
         }
         config['Keywords'] = {'transaction_types': DEFAULT_CONFIG['transaction_types']}
+        # ========== NEU V2.02/V2.09: WKN-Beispiele ==========
+        config['WKN'] = {
+            'ISIN123': 'WKN123'
+        }
+        # ========== ENDE: WKN-Beispiele ==========        
         config['ButtonTexts'] = {
             'pdf_button_names': DEFAULT_CONFIG['pdf_button_names'],
             'logout_button': DEFAULT_CONFIG['logout_button']
@@ -245,13 +267,6 @@ def load_config():
             'click_transaction_timeout': DEFAULT_CONFIG['click_transaction_timeout'],
             'filter_button_timeout': DEFAULT_CONFIG['filter_button_timeout']
         }
-        # ========== NEU V2.02: WKN-Beispiele ==========
-        config['WKN'] = {
-            '# Beispiel-Zuordnungen ISIN = WKN': '',
-            '# LU2572257124': 'ETF018',
-            '# LU0496786657': 'LYX0FZ'
-        }
-        # ========== ENDE: WKN-Beispiele ==========
         with open(CONFIG_PATH, 'w', encoding='utf-8') as f:
             config.write(f)
         print(f"[v{__version__}] SC-Downloader.ini erstellt: {CONFIG_PATH}")
@@ -335,16 +350,37 @@ def collect_targets(items, keywords, max_transactions):
 def handle_popups(page):
     """Schließt häufige Popup-Dialoge"""
     try:
-        texts = ["Akzeptieren", "Alle akzeptieren", "Zustimmen", "Verstanden", "Schließen", "Später", "Zum Broker"]
+        # Cookie-Dialog (spezieller Test-ID Selector)
+        try:
+            cookie_btn = page.get_by_test_id("uc-accept-all-button")
+            if cookie_btn.is_visible():
+                cookie_btn.click()
+                page.wait_for_load_state("networkidle")
+                print(f"  ✓ Cookie-Dialog geschlossen")
+        except Exception:
+            pass
+        
+        # Popups über Button-Text
+        texts = [
+            "Schließen und nicht mehr",  # Börsen-Dialog nach Handelsschluss
+            "Alle akzeptieren",          # Fallback für Cookie-Dialog
+            "Akzeptieren", 
+            "Zustimmen", 
+            "Verstanden", 
+            "Schließen"
+        ]
+        
         for text in texts:
             try:
                 btn = page.get_by_role("button", name=text, exact=False).first
+                # print(f"  ✓ Popup versuchen: '{text}'")
                 if btn.is_visible():
                     btn.click()
                     print(f"  ✓ Popup geschlossen: '{text}'")
-                    time.sleep(0.5)
-            except Exception as e:
+                    break  # Nach erfolgreichem Klick raus
+            except Exception:
                 pass
+                
     except Exception as e:
         print(f"  ⚠ Popup-Handling Fehler: {e}")
 
@@ -440,7 +476,68 @@ def normalize_text(s: str) -> str:
     s = s.replace("\n", " ").strip()
     return s
 
+# NEU V2.09
+def resolve_and_prepare_download_dir(raw_dir: str) -> str:
+    """
+    Bereinigt, validiert und erstellt das Download-Verzeichnis.
+    """
+    # 1) Basis-Kandidat bestimmen
+    candidate = raw_dir.strip() if raw_dir else DEFAULT_CONFIG['download_directory']
+    candidate = os.path.expanduser(candidate)  # ~ auflösen
+    if not os.path.isabs(candidate):
+        candidate = os.path.join(BASE_DIR, candidate)
+    candidate = os.path.normpath(candidate)
 
+    # 2) Plattform-spezifische Plausibilitätsprüfung
+    if platform.system() == "Windows":
+        invalid_chars = set('<>"/\\|?*')  # Doppelpunkt entfernt
+        parts = candidate.split(os.sep)
+        
+        # Laufwerksbuchstabe (z.B. 'c:') überspringen
+        start_index = 0
+        if len(parts) > 0 and len(parts[0]) == 2 and parts[0][1] == ':':
+            start_index = 1
+        
+        # Restliche Segmente prüfen
+        for part in parts[start_index:]:
+            if not part or part.endswith('.'):  # leere Segmente oder Endpunkt
+                raise ValueError(f"Ungültiger Segmentname: '{part}'")
+            if any(ch in invalid_chars for ch in part):
+                raise ValueError(f"Ungültiges Zeichen in Segment '{part}'")
+
+    try:
+        # 3) Erstellen (falls nötig)
+        os.makedirs(candidate, exist_ok=True)
+
+        # 4) Schreibtest (Temp-Datei)
+        fd, tmp_path = tempfile.mkstemp(prefix=".__writetest__", dir=candidate)
+        os.close(fd)
+        os.remove(tmp_path)
+
+        return candidate
+    except Exception as e:
+        # 5) Fallback
+        fallback = os.path.join(BASE_DIR, DEFAULT_CONFIG['download_directory'])
+        try:
+            os.makedirs(fallback, exist_ok=True)
+            fd, tmp_path = tempfile.mkstemp(prefix=".__writetest__", dir=fallback)
+            os.close(fd)
+            os.remove(tmp_path)
+            print(f"⚠ Download-Verzeichnis '{candidate}' nicht verfügbar: {e}")
+            print(f"  → Fallback: {fallback}")
+            return fallback
+        except Exception as e2:
+            print(" ✗ Kritischer Fehler: Konnte kein gültiges Download-Verzeichnis anlegen.")
+            print(f"   Primär: {candidate} -> {e}")
+            print(f"   Fallback: {fallback} -> {e2}")
+            input(" Drücke Enter zum Beenden...")
+            sys.exit(1)
+
+# ==========================================================================================
+#
+# ========================================= START ==========================================
+#
+# ==========================================================================================
 
 def run_downloader():
     global DOWNLOAD_DIR # NEU V2.04b
@@ -449,8 +546,8 @@ def run_downloader():
     PDF_BUTTON_NAMES = settings['pdf_button_names']
     WKN_MAPPING = settings['wkn_mapping']  # ========== NEU V2.02 ==========
     
-    DOWNLOAD_DIR = settings['download_dir'] if os.path.isabs(settings['download_dir']) else os.path.join(BASE_DIR, settings['download_dir'])
-    os.makedirs(DOWNLOAD_DIR, exist_ok=True)
+    # NEU V2.09 fehlerhaften Pfad abfangen
+    DOWNLOAD_DIR = resolve_and_prepare_download_dir(settings['download_dir'])
     print(f"[v{__version__}] Zielordner: {DOWNLOAD_DIR}")
 
     with sync_playwright() as p:
@@ -461,7 +558,7 @@ def run_downloader():
             accept_downloads=True
         )
         page = context.new_page()
-        
+
         try:
             page.goto(TARGET_URL)
         except Exception as e:
@@ -470,8 +567,7 @@ def run_downloader():
             return
         
         # wichtig damit ein ggf benötigter Login erkannt wird
-        time.sleep(2)
-        handle_popups(page)
+        page.wait_for_load_state("networkidle")
 
         if "login" in page.url:
             # NEU V2.08 Versuche Auto-Fill falls aktiviert
@@ -481,8 +577,9 @@ def run_downloader():
                 if username and password:
                     try:
                         print("  → Fülle Login-Daten aus...")
-                        page.fill('#username', username, timeout=500)
-                        page.fill('#password', password, timeout=500)
+                        page.wait_for_selector("#username", timeout=10000)
+                        page.fill('#username', username, timeout=2000)
+                        page.fill('#password', password, timeout=1000)
                         # Login-Button klicken
                         page.get_by_role("button", name="Login").click() # Selektor über Text
                         print("  ✓ Login-Daten ausgefüllt - Bitte 2FA in der App bestätigen")
@@ -496,18 +593,29 @@ def run_downloader():
             
             # Warte auf erfolgreichen Login (wie bisher)
             try:
-                page.wait_for_url(re.compile(r".*/(cockpit|transactions|dashboard|broker)/.*"), timeout=0)
+                page.wait_for_url(re.compile(r".*/(cockpit|transactions|dashboard|broker)/.*"), timeout=90000) # 90 Sekunden warten
                 print("  ✓ Login erkannt.")
             except Exception as e:
-                print(f"  ⚠ Login-Warnung: {e}")
+                if "Timeout" in type(e).__name__ or "Timeout" in str(e):
+                    # NEU V2.09 
+                    print(" ⚠  TIMEOUT: Kein Login innerhalb von 1 Minute")
+                    context.close()
+                    input(" ⏸  Drücke Enter zum Beenden...")
+                    sys.exit(1)
+                else:
+                    print(f"  ⚠ Login-Warnung: {e}")
                     
+            # Debug V2.09 STOP zum manuellen Debuggen
+            # page.pause()
+
+            page.wait_for_load_state("networkidle")
             handle_popups(page)
             
             if TARGET_URL not in page.url:
                 print("  -> Navigiere zu Transaktionen...")
                 try:
                     page.goto(TARGET_URL)
-                    handle_popups(page)
+                    #handle_popups(page)
                 except Exception as e:
                     print(f"  ⚠ Navigation fehlgeschlagen: {e}")
         
