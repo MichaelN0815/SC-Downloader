@@ -17,4 +17,10 @@ V2.06 more stable timing
       add special handling for Vorabpauschale 
 V2.07 default INI entry pdf_button_names updated
       generating cleaner filenames
-	  fixed new Mailbox documents option
+      fixed new Mailbox documents option
+V2.08 added optional Auto-Login for Windows OS
+V2.09 Handle invalid INI configuration
+      Detect and handle invalid file paths
+      Fixed incorrect WKN examples in INI file
+      Automatically terminate if login does not occur
+	  improved Popup handling
