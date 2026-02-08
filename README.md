@@ -13,8 +13,9 @@ Ein Tool zum automatisierten Herunterladen von Wertpapierabrechnungen (Kauf, Ver
 - Wahlweise kann die ISIN durch die WKN ersetzt werden
 - Lädt neue (oder alle) Dokumente aus der Mailbox herunter (immer mit dem Original-Dateinamen)
 - Duplikats-Prüfung: Bereits vorhandene Dateien werden erkannt und übersprungen
-- Abbruch-Option: Kann beim ersten gefundenen Duplikat stoppen (stop-at-first-duplicate)
+- Abbruch-Option: Optional beim ersten gefundenen Duplikat stoppen (stop-at-first-duplicate)
 - Unterstützt den manuellen Login inklusive Zwei-Faktor-Authentifizierung
+- Optional Auto-Login mit Speicherung im Windows Credential Manager (nur Windows)
 - Als EXE-Version inklusive Browser verfügbar (keine Python-Installation nötig)
 
 # Update-Hinweis
@@ -25,6 +26,9 @@ Ein Tool zum automatisierten Herunterladen von Wertpapierabrechnungen (Kauf, Ver
 >Zum Download der PDFs für Vorabpauschale wird Programm und INI der **Version 2.06** benötigt!
 >
 >**Version 2.07** generiert nun sauberere Dateinamen ohne unnötige Sonderzeichen - dadurch bedingt wird der erste Abruf auch mit der Einstellung `stop_at_first_duplicate = True` nochmal die gleichen PDFs runterladen - weil sich der selbst erstellte Dateiname leicht geändert hat. 
+>
+>**Version 2.08** optional können nun die Login-Daten gespeichert werden. Dazu wird der Windows Credential Manager genutzt. Daher ist diese Funktion nur unter Windows verfügbar. Das Skript greift nur auf den Passwort-Safe von Windows zu, es speichert intern keine Login-Daten ab. Diese Funktion wird nur aktiviert, wenn dies ausdrücklich in der INI-Datei eingetragen wird - siehe Abschnitt INI Parameter. Siehe auch das Issue zu dieser Funktion. (https://github.com/MichaelN0815/SC-Downloader/issues/8#issuecomment-3849121778) 
+>
 
 ![Screenshot1](https://github.com/user-attachments/assets/b19e3dd1-a223-451a-9c71-e818014113f3)
 ![Screenshot2](https://github.com/user-attachments/assets/adfc9cc7-d083-4464-b9a9-a215537dde52)
@@ -62,6 +66,10 @@ Ggf. auch die INI wenn man vor dem ersten Start bereits Parameter anpassen will.
 
 	`playwright install chromium`
 
+* nur für Auto-Login unter Windows:
+
+	`pip install keyring`
+
 * Starten über
 
 	`python downloader.py`
@@ -81,13 +89,13 @@ Ggf. auch die INI wenn man vor dem ersten Start bereits Parameter anpassen will.
 
 **[General]**
 
-`max_transactions` Maximale Anzahl der PDF aus dem Bereich Transaktionen, die verarbeitet werden sollen (Standard: 20; getestet bis 500).
+`max_transactions` Maximale Anzahl der PDF aus dem Bereich Transaktionen, die verarbeitet werden sollen (Standard: 20; getestet bis 500)
 
-`download_directory` Name des Ordners oder kompletter Pfad, in dem die PDFs gespeichert werden (Standard: Scalable_Downloads).
+`download_directory` Name des Ordners oder kompletter Pfad, in dem die PDFs gespeichert werden (Standard: Scalable_Downloads)
 
-`stop_at_first_duplicate` Wenn "True", bricht das Skript ab, sobald die erste bereits vorhandene Datei gefunden wird (Standard: False).
+`stop_at_first_duplicate` Wenn "True", bricht das Skript ab, sobald die erste bereits vorhandene Datei gefunden wird (Standard: False)
 
-`use_original_filename` Bei "True" wird der Name von Scalable beibehalten; bei "False" wird die sprechende Benennung genutzt (Standard: False).
+`use_original_filename` Bei "True" wird der Name von Scalable beibehalten; bei "False" wird die sprechende Benennung genutzt (Standard: False)
 
 `get_documents` Bei "True" werden auch die Dokumente aus dem Bereich Mailbox heruntergeladen (Standard: True)
 
@@ -95,7 +103,9 @@ Ggf. auch die INI wenn man vor dem ersten Start bereits Parameter anpassen will.
 
 `max_documents` maximale Anzahl der Dokumente aus der Mailbox, die geladen werden sollen (Standard: 20)
 
-`logout_after_run` Meldet den Benutzer nach Abschluss aller Aktionen automatisch ab (Standard: True).
+`logout_after_run` Meldet den Benutzer nach Abschluss aller Aktionen automatisch ab (Standard: True)
+
+`use_saved_credentials` Wenn True, dann wird ein Auto-Login durchgeführt. Die Zugangsdaten werden beim ersten Mal abgefragt und sicher im Windows Credential Manager gespeichert. Dort sind sie unter scalable_login zu finden und können dort auch wieder gelöscht werden. Im Standard werden vom Skript keine Login-Daten gespeichert, diese Funktion ist rein optional. (Standard: False)
 
 **[Keywords]**
 
@@ -110,11 +120,11 @@ z.B. "Depotübertrag" im Filter und "Einlieferung" in der Liste. Dann muss man u
 
 **[WKN]**
 
-diese Sektion kann mit einer Übersetzungstabelle ISIN zu WKN gefüllt werden
-Sie kommt nur zum Einsatz wenn die Option use_original_filename = False ist
-Wird eine ISIN gefunden, dann wird sie durch die angegebene WKN ersetzt
-Wird die ISIN nicht gefunden, wird weiterhin die ISIN von Scalable genutzt
-Es ist hier zulässig Kommentare mit # oder ; anzufügen
+- diese Sektion kann mit einer Übersetzungstabelle ISIN zu WKN gefüllt werden 
+- Sie kommt nur zum Einsatz wenn die Option use_original_filename = False ist 
+- Wird eine ISIN gefunden, dann wird sie durch die angegebene WKN ersetzt
+- Wird die ISIN nicht gefunden, wird weiterhin die ISIN von Scalable genutzt
+- Es ist hier zulässig Kommentare mit # oder ; anzufügen
 
 Beispiel:
 
