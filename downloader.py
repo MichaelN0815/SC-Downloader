@@ -2,15 +2,13 @@
 # -*- coding: utf-8 -*-
 """
 Scalable Capital PDF Downloader
-credentials unter Windows speichern
-fehlerhafte INI abfangen
-fehlerhaften Pfad abfangen
-fehlerfafte WKN Beispiele in INI korrigiert
-automatisch Beenden wenn kein Login erfolgt
-Cookie Popup automatisch schliessen
+verborgene Passwort Abfrage
+gleichnamige Transaktionen trotzdem laden
+gleichnamige Dokumente mit Zähler speichern
+max Anzahl Dokumente erhöht
 """
 
-__version__ = "2.09"
+__version__ = "2.10"
 
 import os
 import sys
@@ -20,6 +18,8 @@ import re
 import platform
 import subprocess
 import tempfile
+import getpass
+import time as time_module
 
 from datetime import datetime
 from playwright.sync_api import sync_playwright
@@ -124,7 +124,7 @@ def ensure_credentials(use_saved_credentials):
         print("="*60)
         
         username = input("\nBenutzername (E-Mail): ").strip()
-        password = input("Passwort: ").strip()
+        password = getpass.getpass("Passwort: ").strip()
         
         if not username or not password:
             print("  ⚠ Keine gültigen Zugangsdaten eingegeben")
@@ -337,10 +337,11 @@ def collect_targets(items, keywords, max_transactions):
         try:
             if not item.is_visible():
                 continue
+            zeit = item.get_attribute('aria-labelledby')
             text = item.inner_text().replace("\n", " ").strip()
             for key in keywords:
                 if key in text:
-                    found.append((idx, text, key))
+                    found.append((idx, zeit, text, key))
                     break
         except Exception as e:
             print(f"  ⚠ Element {idx} konnte nicht gelesen werden: {e}")
@@ -436,6 +437,62 @@ def scroll_and_load_transactions(page, keywords, max_transactions, settings):
     print(f"[v{__version__}] Scroll-Logik beendet. Insgesamt {current_count} Transaktionen verfügbar.")
     return current_count
 # ========== ENDE NEU V2.04 ==========
+
+# NEU: V2.10
+def scroll_and_load_documents(page, settings, max_documents):
+    """
+    Lädt alle Mailbox-Dokumente durch Vergrößerung des Viewports.
+    """
+    print(f"[v{__version__}] Lade Dokumente durch Viewport-Vergrößerung...")
+    
+    try:
+        # Originalen Viewport speichern
+        original_viewport = page.viewport_size
+        
+        # Riesigen Viewport setzen (12000px Höhe)
+        page.set_viewport_size({"width": 1920, "height": 12000})
+        print(f"  → Viewport auf 1920x12000 gesetzt")
+        
+        # Warten bis die Liste alle Elemente gerendert hat
+        time.sleep(2)
+        
+        # Zähle die Dokumente
+        if not settings['only_new_docs']:
+            all_rows = page.locator('[data-mailbox-item-subject]').filter(
+                has=page.locator('[data-testid="mailbox-download"]')
+            ).all()
+            current_count = len(all_rows)
+        else:
+            candidate_rows = page.locator('[data-mailbox-item-subject]').filter(
+                has=page.locator('[data-testid="mailbox-download"]')
+            )
+            
+            new_docs_count = 0
+            for i in range(candidate_rows.count()):
+                row = candidate_rows.nth(i)
+                try:
+                    status_cell = row.locator('div.MuiGrid-grid-xs-1').last
+                    indicator = status_cell.locator('*')
+                    if indicator.count() > 0 and indicator.first.is_visible():
+                        new_docs_count += 1
+                except Exception:
+                    continue
+            
+            current_count = new_docs_count
+        
+        print(f"  → {current_count} Dokumente gefunden")
+        
+        return current_count
+        
+    except Exception as e:
+        print(f"  ⚠ Fehler beim Viewport-Trick: {e}")
+        # Viewport sicherheitshalber zurücksetzen
+        try:
+            if original_viewport:
+                page.set_viewport_size(original_viewport)
+        except:
+            pass
+        return 0
 
 def save_error_screenshot(page, download_dir, full_text, error_type, date_str=None, wp_name=None):
     """Speichert einen Error-Screenshot mit aussagekräftigem Namen"""
@@ -683,7 +740,7 @@ def run_downloader():
         print(f"[v{__version__}] Suche beendet. {len(targets)} relevante Dokumente gefunden.")
         
         downloaded = skipped = 0
-        for target_idx, (idx, full_text, keyword) in enumerate(targets):
+        for target_idx, (idx, zeit, full_text, keyword) in enumerate(targets):
             file_name = "unknown_transaction.pdf" 
             try:
                 print(f"\n[{target_idx+1}/{len(targets)}] {full_text[:50]}...")
@@ -698,8 +755,11 @@ def run_downloader():
                     for i in range(count):
                         item = items.nth(i)
                         try:
+                            item_zeit = item.get_attribute('aria-labelledby')
                             ui_text = normalize_text(item.inner_text())
                             if ui_text != normalized_target:
+                                continue
+                            if item_zeit != zeit:
                                 continue
                             type_element = item.get_by_text(keyword, exact=True).first
                             type_element.scroll_into_view_if_needed(timeout=2000)
@@ -963,6 +1023,12 @@ def run_downloader():
                 
                 time.sleep(settings['page_load_wait'])
                 print(f"  ✓ Mailbox geladen")
+
+                #page.pause()
+
+                # NEU V2.10 Scroll-Logik zum Nachladen aller Dokumente
+                original_viewport = page.viewport_size
+                scroll_and_load_documents(page, settings, settings['max_documents'])
                 
                 # Alle Zeilen mit der spezifischen Hintergrundfarbe finden
                 try:
@@ -1054,18 +1120,34 @@ def run_downloader():
                         # Zielpfad festlegen
                         target_path = os.path.join(DOWNLOAD_DIR, final_file_name)
                         
-                        # Duplikatsprüfung vor Download
+                        # NEU V2.10 Duplikatsprüfung vor Download
                         if os.path.exists(target_path):
-                            print(f"  -> ✓ Bereits vorhanden: {final_file_name}")
-                            docs_skipped += 1
-                            # Download-Objekt verwerfen
-                            try:
-                                temp_path = download_info.path()
-                                if temp_path and os.path.exists(temp_path):
-                                    os.remove(temp_path)
-                            except Exception:
-                                pass
-                            continue
+                            
+                            # Datum der existierenden Datei prüfen
+                            existing_mtime = os.path.getmtime(target_path)
+                            age_seconds = time_module.time() - existing_mtime
+                            
+                            if age_seconds > 600:  # Älter als 10 Minuten
+                                # Alte Datei = Duplikat, überspringen
+                                print(f"  -> ✓ Bereits vorhanden: {final_file_name}")
+                                docs_skipped += 1
+                                # Download-Objekt verwerfen
+                                try:
+                                    temp_path = download_info.path()
+                                    if temp_path and os.path.exists(temp_path):
+                                        os.remove(temp_path)
+                                except Exception:
+                                    pass
+                                continue
+                            else:
+                                # Frische Datei = anderes Dokument mit gleichem Namen
+                                base_name = final_file_name[:-4]  # ohne .pdf
+                                counter = 1
+                                while os.path.exists(target_path):
+                                    final_file_name = f"{base_name}_{counter}.pdf"
+                                    target_path = os.path.join(DOWNLOAD_DIR, final_file_name)
+                                    counter += 1
+                                print(f"  -> Gleichnamiges Dokument, speichere als: {final_file_name}")
                         
                         # PDF herunterladen
                         try:
@@ -1096,6 +1178,11 @@ def run_downloader():
                 
             except Exception as e:
                 print(f"  ✗ Fehler beim Mailbox-Zugriff: {e}")
+
+        # Viewport zurücksetzen
+        if original_viewport:
+            page.set_viewport_size(original_viewport)
+            print(f"  → Viewport zurückgesetzt")
         
         # Start Logout
         if settings['logout_after_run']:
