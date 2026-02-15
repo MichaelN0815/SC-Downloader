@@ -5,10 +5,10 @@ Scalable Capital PDF Downloader
 verborgene Passwort Abfrage
 gleichnamige Transaktionen trotzdem laden
 gleichnamige Dokumente mit Zähler speichern
-max Anzahl Dokumente erhöht (ohne Viewport)
+max Anzahl Dokumente erhöht (ohne Viewport, begrenztes Scrolling)
 """
 
-__version__ = "2.10.1"
+__version__ = "2.10.2"
 
 import os
 import sys
@@ -19,12 +19,17 @@ import platform
 import subprocess
 import tempfile
 import getpass
-import time as time_module
 
 from datetime import datetime
 from playwright.sync_api import sync_playwright
 from urllib.parse import urlparse, unquote
 
+# Plattformspezifische imports
+if platform.system() == "Windows":
+    import msvcrt
+else:
+    import tty
+    import termios
 
 # --- 1. STANDARDEINSTELLUNGEN ---
 TARGET_URL = "https://de.scalable.capital/broker/transactions"
@@ -437,62 +442,6 @@ def scroll_and_load_transactions(page, keywords, max_transactions, settings):
     print(f"[v{__version__}] Scroll-Logik beendet. Insgesamt {current_count} Transaktionen verfügbar.")
     return current_count
 # ========== ENDE NEU V2.04 ==========
-
-# NEU: V2.10
-def scroll_and_load_documents(page, settings, max_documents):
-    """
-    Lädt alle Mailbox-Dokumente durch Vergrößerung des Viewports.
-    """
-    print(f"[v{__version__}] Lade Dokumente durch Viewport-Vergrößerung...")
-    
-    try:
-        # Originalen Viewport speichern
-        original_viewport = page.viewport_size
-        
-        # Riesigen Viewport setzen (12000px Höhe)
-        page.set_viewport_size({"width": 1920, "height": 12000})
-        print(f"  → Viewport auf 1920x12000 gesetzt")
-        
-        # Warten bis die Liste alle Elemente gerendert hat
-        time.sleep(2)
-        
-        # Zähle die Dokumente
-        if not settings['only_new_docs']:
-            all_rows = page.locator('[data-mailbox-item-subject]').filter(
-                has=page.locator('[data-testid="mailbox-download"]')
-            ).all()
-            current_count = len(all_rows)
-        else:
-            candidate_rows = page.locator('[data-mailbox-item-subject]').filter(
-                has=page.locator('[data-testid="mailbox-download"]')
-            )
-            
-            new_docs_count = 0
-            for i in range(candidate_rows.count()):
-                row = candidate_rows.nth(i)
-                try:
-                    status_cell = row.locator('div.MuiGrid-grid-xs-1').last
-                    indicator = status_cell.locator('*')
-                    if indicator.count() > 0 and indicator.first.is_visible():
-                        new_docs_count += 1
-                except Exception:
-                    continue
-            
-            current_count = new_docs_count
-        
-        print(f"  → {current_count} Dokumente gefunden")
-        
-        return current_count
-        
-    except Exception as e:
-        print(f"  ⚠ Fehler beim Viewport-Trick: {e}")
-        # Viewport sicherheitshalber zurücksetzen
-        try:
-            if original_viewport:
-                page.set_viewport_size(original_viewport)
-        except:
-            pass
-        return 0
 
 def save_error_screenshot(page, download_dir, full_text, error_type, date_str=None, wp_name=None):
     """Speichert einen Error-Screenshot mit aussagekräftigem Namen"""
@@ -1024,21 +973,28 @@ def run_downloader():
                 time.sleep(settings['page_load_wait'])
                 print(f"  ✓ Mailbox geladen")
                 
-                # Hole Gesamthöhe und sichtbare Höhe dynamisch
+                # V2.10.2 neue Scrolllogik - Hole Gesamthöhe und sichtbare Höhe dynamisch
                 try:
                     scroll_container = page.locator('div[role="list"][aria-label="Mailbox"] > div').first
                     total_height = scroll_container.evaluate("element => element.scrollHeight")
                     viewport_height = scroll_container.evaluate("element => element.clientHeight")
                     
-                    print(f"  Gesamthöhe: {total_height}px, sichtbar: {viewport_height}px")
+                    #print(f"  Gesamthöhe: {total_height}px, sichtbar: {viewport_height}px")
+                    print(f"  ℹ️ max. mögliche Anzahl Dokumente ca. {int(total_height/60)}")
                     
-                    # Scrolle in Schritten durch die komplette Liste
-                    scroll_steps = int(total_height / viewport_height) + 1
+                    # Schätze Dokumente pro Viewport (~9-10 Dokumente)
+                    docs_per_viewport = 7
                     
-                    print(f"  Scrolle in {scroll_steps} Schritten durch die Liste")
+                    # Berechne benötigte Scroll-Steps basierend auf max_documents
+                    needed_steps = (settings['max_documents'] // docs_per_viewport) + 2  # +2 als Puffer
+                    max_possible_steps = int(total_height / viewport_height) + 1
+                    
+                    scroll_steps = min(needed_steps, max_possible_steps)
+                    
+                    #print(f"  Benötigte Scroll-Steps für {settings['max_documents']} Dokumente: {scroll_steps}")
                 except Exception as e:
                     print(f"  ⚠ Fehler: {e}")
-                    scroll_steps = 20  # Fallback
+                    scroll_steps = (settings['max_documents'] // 9) + 2  # Fallback
                     viewport_height = 800
                 
                 # Download-Loop
@@ -1056,7 +1012,7 @@ def run_downloader():
                         scroll_container.evaluate(f"element => element.scrollTop = {scroll_pos}")
                         time.sleep(0.5)
                         
-                        print(f"  Scroll-Position: {scroll_pos}/{total_height}px")
+                        #print(f"  Scroll-Position: {scroll_pos}/{total_height}px")
                         
                         # Verarbeite alle aktuell sichtbaren Dokumente
                         if not settings['only_new_docs']:
@@ -1141,11 +1097,10 @@ def run_downloader():
                                 
                                 # Duplikatsprüfung mit Datumsprüfung
                                 if os.path.exists(target_path):
-                                    import time as time_module
                                     
                                     # Datum der existierenden Datei prüfen
                                     existing_mtime = os.path.getmtime(target_path)
-                                    age_seconds = time_module.time() - existing_mtime
+                                    age_seconds = time.time() - existing_mtime
                                     
                                     if age_seconds > 600:  # Älter als 10 Minuten
                                         # Alte Datei = Duplikat, überspringen
@@ -1257,17 +1212,12 @@ if __name__ == "__main__":
     
     # Plattformübergreifende Tastatureingabe
     if platform.system() == "Windows":
-        import msvcrt
         print("Warte auf Tastendruck...")
         key = msvcrt.getch()
         if key in [b'\r', b'\n']:  # ENTER
             open_download_folder(DOWNLOAD_DIR)
     else:
         # Unix/Linux/macOS
-        import sys
-        import tty
-        import termios
-        
         print("Warte auf Tastendruck...")
         fd = sys.stdin.fileno()
         old_settings = termios.tcgetattr(fd)
