@@ -5,10 +5,10 @@ Scalable Capital PDF Downloader
 verborgene Passwort Abfrage
 gleichnamige Transaktionen trotzdem laden
 gleichnamige Dokumente mit Zähler speichern
-max Anzahl Dokumente erhöht
+max Anzahl Dokumente erhöht (ohne Viewport)
 """
 
-__version__ = "2.10"
+__version__ = "2.10.1"
 
 import os
 import sys
@@ -1023,166 +1023,185 @@ def run_downloader():
                 
                 time.sleep(settings['page_load_wait'])
                 print(f"  ✓ Mailbox geladen")
-
-                #page.pause()
-
-                # NEU V2.10 Scroll-Logik zum Nachladen aller Dokumente
-                original_viewport = page.viewport_size
-                scroll_and_load_documents(page, settings, settings['max_documents'])
                 
-                # Alle Zeilen mit der spezifischen Hintergrundfarbe finden
+                # Hole Gesamthöhe und sichtbare Höhe dynamisch
                 try:
-                    if not settings['only_new_docs']:
-                        # Finde alle Zeilen mit Download-Symbol, egal welche Farbe
-                        print(f"  Finde ALLE Zeilen mit Download-Symbol")
-                        # Finde das äußere Container-Element jeder Zeile mit Download
-                        all_rows = page.locator('[data-mailbox-item-subject]').filter(has=page.locator('[data-testid="mailbox-download"]')).all()
-                        print(f"[v{__version__}] {len(all_rows)} Dokument(e) gefunden.")
-                    else:
-                        # only-new-MODUS: Nur Zeilen mit spezifischer Farbe
-                        # NEU V2.07 
-                        # Finde alle Dokumentzeilen mit Download-Symbol
-                        candidate_rows = page.locator(
-                            '[data-mailbox-item-subject]'
-                        ).filter(
-                            has=page.locator('[data-testid="mailbox-download"]')
-                        )
-
-                        all_rows = []
-
-                        for i in range(candidate_rows.count()):
-                            row = candidate_rows.nth(i)
-                            try:
-                                # Letzte Grid-Spalte (Status / Neu-Indikator)
-                                status_cell = row.locator('div.MuiGrid-grid-xs-1').last
-
-                                # Prüfen, ob dort ein sichtbares Element existiert
-                                indicator = status_cell.locator('*')
-
-                                if indicator.count() > 0:
-                                    # optional: Sichtbarkeit absichern
-                                    if indicator.first.is_visible():
-                                        all_rows.append(row)
-
-                            except Exception:
-                                continue
-                        # ENDE NEU V2.07
-                        print(f"[v{__version__}] {len(all_rows)} Dokument(e) mit Neu-Kennzeichnung gefunden.")
-                except Exception as e:
-                    print(f"  ✗ Fehler beim Laden der Dokumentenliste: {e}")
-                    all_rows = []
-                
-                # Begrenze auf max_documents
-                rows_to_process = all_rows[:settings['max_documents']]
-                
-                for doc_idx, row in enumerate(rows_to_process):
-                    try:
-                        print(f"\n[Dokument {doc_idx+1}/{len(rows_to_process)}]")
-                        
-                        # Suche das Download-Element innerhalb dieser Zeile
-                        download_element = None
-                        try:
-                            download_element = row.locator('[data-testid="mailbox-download"]').first
-                            download_element.wait_for(state="visible", timeout=settings['pdf_button_timeout'])
-                            print(f"  ✓ Download-Symbol gefunden")
-                        except Exception as e:
-                            print(f"  ✗ Download-Symbol nicht gefunden: {e}")
-                            continue
-                        
-                        # Klick auf das Download-Element
-                        try:
-                            print(f"  -> Öffne Dokument...")
-                            
-                            # Fange den direkten Download ab
-                            download_info = None
-                            try:
-                                with page.expect_download(timeout=settings['pdf_tab_timeout']) as download_info_promise:
-                                    # Finde das klickbare Element (könnte das SVG oder ein Parent sein)
-                                    clickable = row.locator('[data-testid="mailbox-download"] svg, [data-testid="mailbox-download"]').first
-                                    clickable.click()
-                                
-                                download_info = download_info_promise.value
-                                print(f"  ✓ Download gestartet: {download_info.suggested_filename}")
-                                
-                            except Exception as download_error:
-                                print(f"  ✗ Download-Event nicht gefangen: {download_error}")
-                                continue
-                            
-                        except Exception as e:
-                            print(f"  ✗ Dokument konnte nicht geöffnet werden: {e}")
-                            continue
-                        
-                        # Original-Dateiname ermitteln
-                        final_file_name = download_info.suggested_filename
-                        if not final_file_name.lower().endswith('.pdf'):
-                            final_file_name += '.pdf'
-                        
-                        # Zielpfad festlegen
-                        target_path = os.path.join(DOWNLOAD_DIR, final_file_name)
-                        
-                        # NEU V2.10 Duplikatsprüfung vor Download
-                        if os.path.exists(target_path):
-                            
-                            # Datum der existierenden Datei prüfen
-                            existing_mtime = os.path.getmtime(target_path)
-                            age_seconds = time_module.time() - existing_mtime
-                            
-                            if age_seconds > 600:  # Älter als 10 Minuten
-                                # Alte Datei = Duplikat, überspringen
-                                print(f"  -> ✓ Bereits vorhanden: {final_file_name}")
-                                docs_skipped += 1
-                                # Download-Objekt verwerfen
-                                try:
-                                    temp_path = download_info.path()
-                                    if temp_path and os.path.exists(temp_path):
-                                        os.remove(temp_path)
-                                except Exception:
-                                    pass
-                                continue
-                            else:
-                                # Frische Datei = anderes Dokument mit gleichem Namen
-                                base_name = final_file_name[:-4]  # ohne .pdf
-                                counter = 1
-                                while os.path.exists(target_path):
-                                    final_file_name = f"{base_name}_{counter}.pdf"
-                                    target_path = os.path.join(DOWNLOAD_DIR, final_file_name)
-                                    counter += 1
-                                print(f"  -> Gleichnamiges Dokument, speichere als: {final_file_name}")
-                        
-                        # PDF herunterladen
-                        try:
-                            print("  -> Lade PDF herunter...")
-                            
-                            # Direkter Download - Datei verschieben
-                            download_info.save_as(target_path)
-                            file_size = os.path.getsize(target_path) / 1024
-                            
-                            print(f"  -> ✓ Gespeichert: {final_file_name} ({file_size:.1f} KB)")
-                            docs_downloaded += 1
-                            
-                        except Exception as e:
-                            print(f"  ✗ Download fehlgeschlagen: {e}")
-                            # Aufräumen falls Download-Datei teilweise existiert
-                            try:
-                                temp_path = download_info.path()
-                                if temp_path and os.path.exists(temp_path):
-                                    os.remove(temp_path)
-                            except Exception:
-                                pass
+                    scroll_container = page.locator('div[role="list"][aria-label="Mailbox"] > div').first
+                    total_height = scroll_container.evaluate("element => element.scrollHeight")
+                    viewport_height = scroll_container.evaluate("element => element.clientHeight")
                     
+                    print(f"  Gesamthöhe: {total_height}px, sichtbar: {viewport_height}px")
+                    
+                    # Scrolle in Schritten durch die komplette Liste
+                    scroll_steps = int(total_height / viewport_height) + 1
+                    
+                    print(f"  Scrolle in {scroll_steps} Schritten durch die Liste")
+                except Exception as e:
+                    print(f"  ⚠ Fehler: {e}")
+                    scroll_steps = 20  # Fallback
+                    viewport_height = 800
+                
+                # Download-Loop
+                processed_ids = set()  # Vermeide Duplikate
+                
+                # Scrolle in Viewport-großen Schritten
+                for step in range(scroll_steps):
+                    if docs_downloaded + docs_skipped >= settings['max_documents']:
+                        print(f"  ✓ Maximum erreicht ({settings['max_documents']})")
+                        break
+                    
+                    scroll_pos = step * viewport_height
+                    
+                    try:
+                        scroll_container.evaluate(f"element => element.scrollTop = {scroll_pos}")
+                        time.sleep(0.5)
+                        
+                        print(f"  Scroll-Position: {scroll_pos}/{total_height}px")
+                        
+                        # Verarbeite alle aktuell sichtbaren Dokumente
+                        if not settings['only_new_docs']:
+                            # Alle Dokumente mit Download-Symbol
+                            visible_docs = page.locator('[data-mailbox-item-subject]').filter(
+                                has=page.locator('[data-testid="mailbox-download"]')
+                            ).all()
+                        else:
+                            # Nur neue Dokumente (mit Neu-Kennzeichnung)
+                            candidate_rows = page.locator('[data-mailbox-item-subject]').filter(
+                                has=page.locator('[data-testid="mailbox-download"]')
+                            )
+                            
+                            visible_docs = []
+                            for i in range(candidate_rows.count()):
+                                row = candidate_rows.nth(i)
+                                try:
+                                    status_cell = row.locator('div.MuiGrid-grid-xs-1').last
+                                    indicator = status_cell.locator('*')
+                                    if indicator.count() > 0 and indicator.first.is_visible():
+                                        visible_docs.append(row)
+                                except Exception:
+                                    continue
+                        
+                        # Download jedes sichtbaren Dokuments
+                        for row in visible_docs:
+                            # Prüfe ob bereits verarbeitet
+                            try:
+                                doc_id = row.get_attribute('data-testid')
+                                if doc_id in processed_ids:
+                                    continue
+                                processed_ids.add(doc_id)
+                            except:
+                                continue
+                            
+                            if docs_downloaded + docs_skipped >= settings['max_documents']:
+                                break
+                            
+                            try:
+                                print(f"\n[Dokument {docs_downloaded + docs_skipped + 1}/{settings['max_documents']}]")
+                                
+                                # Suche das Download-Element innerhalb dieser Zeile
+                                download_element = None
+                                try:
+                                    download_element = row.locator('[data-testid="mailbox-download"]').first
+                                    download_element.wait_for(state="visible", timeout=settings['pdf_button_timeout'])
+                                    print(f"  ✓ Download-Symbol gefunden")
+                                except Exception as e:
+                                    print(f"  ✗ Download-Symbol nicht gefunden: {e}")
+                                    continue
+                                
+                                # Klick auf das Download-Element
+                                try:
+                                    print(f"  -> Öffne Dokument...")
+                                    
+                                    # Fange den direkten Download ab
+                                    download_info = None
+                                    try:
+                                        with page.expect_download(timeout=settings['pdf_tab_timeout']) as download_info_promise:
+                                            # Finde das klickbare Element (könnte das SVG oder ein Parent sein)
+                                            clickable = row.locator('[data-testid="mailbox-download"] svg, [data-testid="mailbox-download"]').first
+                                            clickable.click()
+                                        
+                                        download_info = download_info_promise.value
+                                        print(f"  ✓ Download gestartet: {download_info.suggested_filename}")
+                                        
+                                    except Exception as download_error:
+                                        print(f"  ✗ Download-Event nicht gefangen: {download_error}")
+                                        continue
+                                    
+                                except Exception as e:
+                                    print(f"  ✗ Dokument konnte nicht geöffnet werden: {e}")
+                                    continue
+                                
+                                # Original-Dateiname ermitteln
+                                final_file_name = download_info.suggested_filename
+                                if not final_file_name.lower().endswith('.pdf'):
+                                    final_file_name += '.pdf'
+                                
+                                # Zielpfad festlegen
+                                target_path = os.path.join(DOWNLOAD_DIR, final_file_name)
+                                
+                                # Duplikatsprüfung mit Datumsprüfung
+                                if os.path.exists(target_path):
+                                    import time as time_module
+                                    
+                                    # Datum der existierenden Datei prüfen
+                                    existing_mtime = os.path.getmtime(target_path)
+                                    age_seconds = time_module.time() - existing_mtime
+                                    
+                                    if age_seconds > 600:  # Älter als 10 Minuten
+                                        # Alte Datei = Duplikat, überspringen
+                                        print(f"  -> ✓ Bereits vorhanden: {final_file_name}")
+                                        docs_skipped += 1
+                                        # Download-Objekt verwerfen
+                                        try:
+                                            temp_path = download_info.path()
+                                            if temp_path and os.path.exists(temp_path):
+                                                os.remove(temp_path)
+                                        except Exception:
+                                            pass
+                                        continue
+                                    else:
+                                        # Frische Datei = anderes Dokument mit gleichem Namen
+                                        base_name = final_file_name[:-4]  # ohne .pdf
+                                        counter = 1
+                                        while os.path.exists(target_path):
+                                            final_file_name = f"{base_name}_{counter}.pdf"
+                                            target_path = os.path.join(DOWNLOAD_DIR, final_file_name)
+                                            counter += 1
+                                        print(f"  -> Gleichnamiges Dokument, speichere als: {final_file_name}")
+                                
+                                # PDF herunterladen
+                                try:
+                                    print("  -> Lade PDF herunter...")
+                                    
+                                    # Direkter Download - Datei verschieben
+                                    download_info.save_as(target_path)
+                                    file_size = os.path.getsize(target_path) / 1024
+                                    
+                                    print(f"  -> ✓ Gespeichert: {final_file_name} ({file_size:.1f} KB)")
+                                    docs_downloaded += 1
+                                    
+                                except Exception as e:
+                                    print(f"  ✗ Download fehlgeschlagen: {e}")
+                                    # Aufräumen falls Download-Datei teilweise existiert
+                                    try:
+                                        temp_path = download_info.path()
+                                        if temp_path and os.path.exists(temp_path):
+                                            os.remove(temp_path)
+                                    except Exception:
+                                        pass
+                            
+                            except Exception as e:
+                                print(f"  ✗ FEHLER bei Dokument: {e}")
+                                continue
+                            
                     except Exception as e:
-                        print(f"  ✗ FEHLER bei Dokument {doc_idx+1}: {e}")
+                        print(f"  ⚠ Fehler bei Scroll-Position {scroll_pos}: {e}")
                         continue
                 
-                print(f"\n[v{__version__}] Dokumente-Download abgeschlossen.")
+                print(f"\n[v{__version__}] Dokumente-Download abgeschlossen: {docs_downloaded} heruntergeladen, {docs_skipped} übersprungen")
                 
             except Exception as e:
                 print(f"  ✗ Fehler beim Mailbox-Zugriff: {e}")
-
-        # Viewport zurücksetzen
-        if original_viewport:
-            page.set_viewport_size(original_viewport)
-            print(f"  → Viewport zurückgesetzt")
         
         # Start Logout
         if settings['logout_after_run']:
