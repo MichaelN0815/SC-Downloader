@@ -6,9 +6,10 @@ verborgene Passwort Abfrage
 gleichnamige Transaktionen trotzdem laden
 gleichnamige Dokumente mit Zähler speichern
 max Anzahl Dokumente erhöht (ohne Viewport, begrenztes Scrolling)
+Status-Filter ausgeführt hinzu (INI: only_executed)
 """
 
-__version__ = "2.10.2"
+__version__ = "2.10.3"
 
 import os
 import sys
@@ -47,6 +48,7 @@ DEFAULT_CONFIG = {
     'use_saved_credentials': 'False',
     'get_documents': 'True',
     'only_new_docs': 'True',
+    'only_executed': 'True',
     'slow_mo': '100',
     'transaction_types': 'Ausschüttung, Kauf, Verkauf, Sparplan, Steuern',
     'pdf_button_names': 'Wertpapierabrechnung, Wertpapierereignisse, Vorabpauschale',
@@ -129,7 +131,7 @@ def ensure_credentials(use_saved_credentials):
         print("="*60)
         
         username = input("\nBenutzername (E-Mail): ").strip()
-        password = getpass.getpass("Passwort: ").strip()
+        password = getpass.getpass("Passwort (unsichtbar): ").strip()
         
         if not username or not password:
             print("  ⚠ Keine gültigen Zugangsdaten eingegeben")
@@ -250,7 +252,8 @@ def load_config():
             'logout_after_run': DEFAULT_CONFIG['logout_after_run'],
             'use_saved_credentials': DEFAULT_CONFIG['use_saved_credentials'],
             'get_documents': DEFAULT_CONFIG['get_documents'],
-            'only_new_docs': DEFAULT_CONFIG['only_new_docs']
+            'only_new_docs': DEFAULT_CONFIG['only_new_docs'],
+            'only_executed': DEFAULT_CONFIG['only_executed']
         }
         config['Keywords'] = {'transaction_types': DEFAULT_CONFIG['transaction_types']}
         # ========== NEU V2.02/V2.09: WKN-Beispiele ==========
@@ -289,6 +292,7 @@ def load_config():
         'use_saved_credentials': config.getboolean('General', 'use_saved_credentials', fallback=False),
         'get_documents': config.getboolean('General', 'get_documents', fallback=True),
         'only_new_docs': config.getboolean('General', 'only_new_docs', fallback=True),
+        'only_executed': config.getboolean('General', 'only_executed', fallback=True),
         'keywords': [k.strip() for k in config.get('Keywords', 'transaction_types', fallback=DEFAULT_CONFIG['transaction_types']).split(',')],
         'pdf_button_names': [k.strip() for k in config.get('ButtonTexts', 'pdf_button_names', fallback=DEFAULT_CONFIG['pdf_button_names']).split(',')],
         'logout_button': config.get('ButtonTexts', 'logout_button', fallback=DEFAULT_CONFIG['logout_button']),
@@ -632,7 +636,8 @@ def run_downloader():
         
         time.sleep(settings['page_load_wait'])
 
-        print(f"[v{__version__}] Setze Filter...")
+        # Start Filter Auftragstyp
+        print(f"[v{__version__}] Setze Auftragstyp Filter...")
         try:
             filter_button = page.get_by_text("Auftragstyp").first
             filter_button.click(timeout=settings['filter_button_timeout'])
@@ -655,6 +660,36 @@ def run_downloader():
             print(f"  ⚠ Filter-Button nicht gefunden: {e}")
             print("  → Fahre ohne Filter fort")
 
+        # Ende Filter Auftragstyp
+        time.sleep(settings['critical_wait'])
+
+        # NEU V2.10.3 Start Filter Status (nur ausgeführte Transaktionen)
+        if settings['only_executed']:
+            print(f"[v{__version__}] Setze Status-Filter...")
+            try:
+                status_filter_button = page.get_by_text("Status").first
+                status_filter_button.click(timeout=settings['filter_button_timeout'])
+                print("  ✓ Status-Filter-Dropdown geöffnet")
+                
+                try:
+                    status_dropdown = page.locator("[role='listbox'], [role='menu'], div[class*='dropdown'][class*='menu']").first
+                    # Klicke auf die "Ausgeführt" Checkbox
+                    try:
+                        status_dropdown.locator("#EXECUTED-label").first.click(timeout=1000, no_wait_after=True)
+                        print(f"  ✓ Status-Filter gesetzt: Ausgeführt")
+                    except Exception as e:
+                        print(f"  ⚠ Status-Filter 'Ausgeführt' nicht gefunden: {e}")
+                    
+                    page.keyboard.press("Escape")
+                    print("  ✓ Status-Filter angewendet")
+                except Exception as e:
+                    print(f"  ⚠ Status-Dropdown-Fehler: {e}")
+            except Exception as e:
+                print(f"  ⚠ Status-Filter-Button nicht gefunden: {e}")
+                print("  → Fahre ohne Status-Filter fort")
+        else:
+            print(f"[v{__version__}] Status-Filter deaktiviert (only_executed = False)")
+        # Ende Filter Status
         time.sleep(settings['critical_wait'])
 
         try:
@@ -1229,4 +1264,3 @@ if __name__ == "__main__":
                 open_download_folder(DOWNLOAD_DIR)
         finally:
             termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
-            
