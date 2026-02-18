@@ -7,9 +7,10 @@ gleichnamige Transaktionen trotzdem laden
 gleichnamige Dokumente mit Zähler speichern
 max Anzahl Dokumente erhöht (ohne Viewport, begrenztes Scrolling)
 Status-Filter ausgeführt hinzu (INI: only_executed)
+filter_button_timeout raus
 """
 
-__version__ = "2.10.3"
+__version__ = "2.10.4"
 
 import os
 import sys
@@ -58,8 +59,7 @@ DEFAULT_CONFIG = {
     'critical_wait': '20',
     'pdf_button_timeout': '1000',
     'pdf_tab_timeout': '5000',
-    'click_transaction_timeout': '5000',
-    'filter_button_timeout': '500'
+    'click_transaction_timeout': '5000'
 }
 
 # --- 2. PFAD-LOGIK ---
@@ -272,8 +272,7 @@ def load_config():
             'critical_wait': DEFAULT_CONFIG['critical_wait'],
             'pdf_button_timeout': DEFAULT_CONFIG['pdf_button_timeout'],
             'pdf_tab_timeout': DEFAULT_CONFIG['pdf_tab_timeout'],
-            'click_transaction_timeout': DEFAULT_CONFIG['click_transaction_timeout'],
-            'filter_button_timeout': DEFAULT_CONFIG['filter_button_timeout']
+            'click_transaction_timeout': DEFAULT_CONFIG['click_transaction_timeout']
         }
         with open(CONFIG_PATH, 'w', encoding='utf-8') as f:
             config.write(f)
@@ -303,7 +302,6 @@ def load_config():
         'pdf_button_timeout': config.getint('Timeouts', 'pdf_button_timeout', fallback=int(DEFAULT_CONFIG['pdf_button_timeout'])),
         'pdf_tab_timeout': config.getint('Timeouts', 'pdf_tab_timeout', fallback=int(DEFAULT_CONFIG['pdf_tab_timeout'])),
         'click_transaction_timeout': config.getint('Timeouts', 'click_transaction_timeout', fallback=int(DEFAULT_CONFIG['click_transaction_timeout'])),
-        'filter_button_timeout': config.getint('Timeouts', 'filter_button_timeout', fallback=int(DEFAULT_CONFIG['filter_button_timeout'])),
         'wkn_mapping': wkn_mapping  # ========== NEU V2.02 ==========
     }
 
@@ -640,7 +638,9 @@ def run_downloader():
         print(f"[v{__version__}] Setze Auftragstyp Filter...")
         try:
             filter_button = page.get_by_text("Auftragstyp").first
-            filter_button.click(timeout=settings['filter_button_timeout'])
+            #V2104 filter_button.click(timeout=settings['filter_button_timeout'])
+            filter_button.wait_for(state="visible", timeout=10000)
+            filter_button.click()
             print("  ✓ Filter-Dropdown geöffnet")
             
             try:
@@ -661,14 +661,17 @@ def run_downloader():
             print("  → Fahre ohne Filter fort")
 
         # Ende Filter Auftragstyp
-        time.sleep(settings['critical_wait'])
+        # V2104 time.sleep(settings['critical_wait'])
+        page.wait_for_load_state("networkidle", timeout=10000)
 
         # NEU V2.10.3 Start Filter Status (nur ausgeführte Transaktionen)
         if settings['only_executed']:
             print(f"[v{__version__}] Setze Status-Filter...")
             try:
                 status_filter_button = page.get_by_text("Status").first
-                status_filter_button.click(timeout=settings['filter_button_timeout'])
+                #V2104 status_filter_button.click(timeout=settings['filter_button_timeout'])
+                status_filter_button.wait_for(state="visible", timeout=10000)
+                status_filter_button.click()
                 print("  ✓ Status-Filter-Dropdown geöffnet")
                 
                 try:
@@ -690,7 +693,8 @@ def run_downloader():
         else:
             print(f"[v{__version__}] Status-Filter deaktiviert (only_executed = False)")
         # Ende Filter Status
-        time.sleep(settings['critical_wait'])
+        # V2104 time.sleep(settings['critical_wait'])
+        page.wait_for_load_state("networkidle", timeout=10000)
 
         try:
             all_items = page.locator("div[role='button'], button").all()
@@ -1203,7 +1207,7 @@ def run_downloader():
                 
                 logout_btn = page.get_by_text(settings['logout_button']).first
                 # die Timeout Zeit darf nicht zu kurz sein
-                logout_btn.wait_for(state="visible", timeout=settings['filter_button_timeout'])
+                logout_btn.wait_for(state="visible", timeout=10000)
                 logout_btn.click(no_wait_after=True)
                 print(f"\n[v{__version__}] ✓ Abgemeldet")
             except Exception as e:
