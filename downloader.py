@@ -8,9 +8,11 @@ gleichnamige Dokumente mit Zähler speichern
 max Anzahl Dokumente erhöht (ohne Viewport, begrenztes Scrolling)
 Status-Filter ausgeführt hinzu (INI: only_executed)
 filter_button_timeout raus
+Dokument-Dateinamen optional auch im Format YYYY-MM-DDD
+Tausenderbeträge korrekt behandeln
 """
 
-__version__ = "2.10.4"
+__version__ = "2.10.5"
 
 import os
 import sys
@@ -887,8 +889,10 @@ def run_downloader():
                         print(f"  ⚠ Konnte Datum/ISIN nicht aus URL parsen: {url_without_params}")
 
                     wp_name = re.sub(r'\(.*?\)', '', full_text)
-                    betrag_m = re.findall(r'(-?\d+[\.,]\d{2})', full_text)
-                    betrag = betrag_m[-1].replace(",", "_").replace(".", "_") if betrag_m else "0_00"
+                    # V2.10.5 Tausenderbeträge korrekt behandeln
+                    full_text_norm = re.sub(r'(?<=\d)\.(?=\d)', '', full_text)
+                    betrag_m = re.findall(r'-?\d+,\d{2}', full_text_norm)
+                    betrag = betrag_m[-1].replace(',', '_') if betrag_m else "0_00"
                     pattern2 = r'-?\d+[\.,]\d{2}.*$'
                     wp_name = re.sub(pattern2, '', wp_name).strip()
                     if wp_name.startswith(keyword): 
@@ -1130,6 +1134,10 @@ def run_downloader():
                                 final_file_name = download_info.suggested_filename
                                 if not final_file_name.lower().endswith('.pdf'):
                                     final_file_name += '.pdf'
+                                
+                                # NEU V2.10.5 optional auch Dokument-Dateinamen als YYYY-MM-DD formatieren
+                                if not settings['use_original_filename']:
+                                    final_file_name = re.sub(r'^(\d{4})(\d{2})(\d{2})', r'\1-\2-\3', final_file_name)
                                 
                                 # Zielpfad festlegen
                                 target_path = os.path.join(DOWNLOAD_DIR, final_file_name)
