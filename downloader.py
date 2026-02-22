@@ -8,11 +8,12 @@ gleichnamige Dokumente mit Zähler speichern
 max Anzahl Dokumente erhöht (ohne Viewport, begrenztes Scrolling)
 Status-Filter ausgeführt hinzu (INI: only_executed)
 filter_button_timeout raus
-Dokument-Dateinamen optional auch im Format YYYY-MM-DDD
-Tausenderbeträge korrekt behandeln
+Dokument-Dateinamen optional auch im Format YYYY-MM-DD
+Tausenderbeträge korrekt behandeln im Transaktion-PDF-Dateinamen
+mögliche Laufzeitfehler abgefangen
 """
 
-__version__ = "2.10.5"
+__version__ = "2.10.6"
 
 import os
 import sys
@@ -404,6 +405,7 @@ def scroll_and_load_transactions(page, keywords, max_transactions, settings):
     
     previous_count = 0
     stable_count = 0
+    current_count = 0 # Bugfix V2.10.6
     #wie oft wird Page-down gedrückt und auf neue Transaktionen geprüft?
     max_stable_iterations = 10
     
@@ -499,23 +501,23 @@ def resolve_and_prepare_download_dir(raw_dir: str) -> str:
     candidate = os.path.normpath(candidate)
 
     # 2) Plattform-spezifische Plausibilitätsprüfung
-    if platform.system() == "Windows":
-        invalid_chars = set('<>"/\\|?*')  # Doppelpunkt entfernt
-        parts = candidate.split(os.sep)
-        
-        # Laufwerksbuchstabe (z.B. 'c:') überspringen
-        start_index = 0
-        if len(parts) > 0 and len(parts[0]) == 2 and parts[0][1] == ':':
-            start_index = 1
-        
-        # Restliche Segmente prüfen
-        for part in parts[start_index:]:
-            if not part or part.endswith('.'):  # leere Segmente oder Endpunkt
-                raise ValueError(f"Ungültiger Segmentname: '{part}'")
-            if any(ch in invalid_chars for ch in part):
-                raise ValueError(f"Ungültiges Zeichen in Segment '{part}'")
-
     try:
+        if platform.system() == "Windows":
+            invalid_chars = set('<>"/\\|?*')  # Doppelpunkt entfernt
+            parts = candidate.split(os.sep)
+            
+            # Laufwerksbuchstabe (z.B. 'c:') überspringen
+            start_index = 0
+            if len(parts) > 0 and len(parts[0]) == 2 and parts[0][1] == ':':
+                start_index = 1
+            
+            # Restliche Segmente prüfen
+            for part in parts[start_index:]:
+                if not part or part.endswith('.'):  # leere Segmente oder Endpunkt
+                    raise ValueError(f"Ungültiger Segmentname: '{part}'")
+                if any(ch in invalid_chars for ch in part):
+                    raise ValueError(f"Ungültiges Zeichen in Segment '{part}'")
+
         # 3) Erstellen (falls nötig)
         os.makedirs(candidate, exist_ok=True)
 
@@ -525,6 +527,7 @@ def resolve_and_prepare_download_dir(raw_dir: str) -> str:
         os.remove(tmp_path)
 
         return candidate
+        
     except Exception as e:
         # 5) Fallback
         fallback = os.path.join(BASE_DIR, DEFAULT_CONFIG['download_directory'])
@@ -569,8 +572,15 @@ def run_downloader():
         )
         page = context.new_page()
 
+        # NEU V2.10.6  HTTP-Cache leeren, Cookies/Session bleiben erhalten
+        page.route("**/*", lambda route: route.continue_(headers={
+            **route.request.headers,
+            "Cache-Control": "no-cache",
+            "Pragma": "no-cache"
+        }))
+        
         try:
-            page.goto(TARGET_URL)
+            page.goto(TARGET_URL, wait_until="commit")
         except Exception as e:
             print(f"  ✗ Fehler beim Öffnen der Seite: {e}")
             context.close()
@@ -708,7 +718,7 @@ def run_downloader():
         targets = collect_targets(all_items, KEYWORDS, settings['max_transactions'])
 
         if not targets:
-            print("  ⚠ Keine relevanten Dokumente gefunden, warte kurz und versuche erneut...")
+            print("  ℹ️ Keine relevanten Dokumente gefunden, warte kurz und versuche erneut...")
             time.sleep(settings['transaction_wait'])
             try:
                 all_items = page.locator("div[role='button'], button").all()
