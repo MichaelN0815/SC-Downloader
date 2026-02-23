@@ -11,9 +11,10 @@ filter_button_timeout raus
 Dokument-Dateinamen optional auch im Format YYYY-MM-DD
 Tausenderbeträge korrekt behandeln im Transaktion-PDF-Dateinamen
 mögliche Laufzeitfehler abgefangen
+Mailbox: störenden grünen Punkt ignorieren
 """
 
-__version__ = "2.10.6"
+__version__ = "2.10.7"
 
 import os
 import sys
@@ -650,7 +651,6 @@ def run_downloader():
         print(f"[v{__version__}] Setze Auftragstyp Filter...")
         try:
             filter_button = page.get_by_text("Auftragstyp").first
-            #V2104 filter_button.click(timeout=settings['filter_button_timeout'])
             filter_button.wait_for(state="visible", timeout=10000)
             filter_button.click()
             print("  ✓ Filter-Dropdown geöffnet")
@@ -673,7 +673,6 @@ def run_downloader():
             print("  → Fahre ohne Filter fort")
 
         # Ende Filter Auftragstyp
-        # V2104 time.sleep(settings['critical_wait'])
         page.wait_for_load_state("networkidle", timeout=10000)
 
         # NEU V2.10.3 Start Filter Status (nur ausgeführte Transaktionen)
@@ -681,7 +680,6 @@ def run_downloader():
             print(f"[v{__version__}] Setze Status-Filter...")
             try:
                 status_filter_button = page.get_by_text("Status").first
-                #V2104 status_filter_button.click(timeout=settings['filter_button_timeout'])
                 status_filter_button.wait_for(state="visible", timeout=10000)
                 status_filter_button.click()
                 print("  ✓ Status-Filter-Dropdown geöffnet")
@@ -705,7 +703,6 @@ def run_downloader():
         else:
             print(f"[v{__version__}] Status-Filter deaktiviert (only_executed = False)")
         # Ende Filter Status
-        # V2104 time.sleep(settings['critical_wait'])
         page.wait_for_load_state("networkidle", timeout=10000)
 
         try:
@@ -1127,7 +1124,7 @@ def run_downloader():
                                         with page.expect_download(timeout=settings['pdf_tab_timeout']) as download_info_promise:
                                             # Finde das klickbare Element (könnte das SVG oder ein Parent sein)
                                             clickable = row.locator('[data-testid="mailbox-download"] svg, [data-testid="mailbox-download"]').first
-                                            clickable.click()
+                                            clickable.click(force=True) # V2.10.7 grünen Punkt übergehen
                                         
                                         download_info = download_info_promise.value
                                         print(f"  ✓ Download gestartet: {download_info.suggested_filename}")
