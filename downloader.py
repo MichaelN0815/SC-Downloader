@@ -11,10 +11,10 @@ filter_button_timeout raus
 Dokument-Dateinamen optional auch im Format YYYY-MM-DD
 Tausenderbeträge korrekt behandeln im Transaktion-PDF-Dateinamen
 mögliche Laufzeitfehler abgefangen
-Mailbox: störenden grünen Punkt ignorieren
+Mailbox: störenden grünen Punkt ignorieren V2
 """
 
-__version__ = "2.10.7"
+__version__ = "2.10.8"
 
 import os
 import sys
@@ -1122,9 +1122,9 @@ def run_downloader():
                                     download_info = None
                                     try:
                                         with page.expect_download(timeout=settings['pdf_tab_timeout']) as download_info_promise:
-                                            # Finde das klickbare Element (könnte das SVG oder ein Parent sein)
-                                            clickable = row.locator('[data-testid="mailbox-download"] svg, [data-testid="mailbox-download"]').first
-                                            clickable.click(force=True) # V2.10.7 grünen Punkt übergehen
+                                            # V2.10.8 JavaScript Klick auf DOM statt Playwright Mausklick
+                                            clickable = row.locator('[data-testid="mailbox-download"]').first
+                                            page.evaluate("el => el.click()", clickable.element_handle())
                                         
                                         download_info = download_info_promise.value
                                         print(f"  ✓ Download gestartet: {download_info.suggested_filename}")
