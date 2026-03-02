@@ -9,9 +9,9 @@ Ein Tool zum automatisierten Herunterladen von Wertpapierabrechnungen (Kauf, Ver
 # Features
 
 - Lädt Transaktion-Dokumente basierend auf konfigurierbaren Keywords herunter
-- Intelligente Benennung: Dateien werden nach dem Schema Datum-Typ-ISIN-Name-Betrag.pdf benannt
+- Intelligente Benennung: Dateien werden nach dem Schema YYYY-MM-DD-Typ-ISIN-Name-Betrag.pdf benannt
 - Wahlweise kann die ISIN durch die WKN ersetzt werden
-- Lädt neue (oder alle) Dokumente aus der Mailbox herunter (immer mit dem Original-Dateinamen)
+- Lädt neue (oder alle) Dokumente aus der Mailbox herunter
 - Duplikats-Prüfung: Bereits vorhandene Dateien werden erkannt und übersprungen
 - Abbruch-Option: Optional beim ersten gefundenen Duplikat stoppen (stop-at-first-duplicate)
 - Unterstützt den manuellen Login inklusive Zwei-Faktor-Authentifizierung
@@ -23,11 +23,17 @@ Ein Tool zum automatisierten Herunterladen von Wertpapierabrechnungen (Kauf, Ver
 >[!IMPORTANT]
 >Da sich teilweise der Funktionsumfang ändert und damit einhergehend Einträge in der INI ergänzt wurden, empfehle ich bei einem Update auch die neuste INI runterzuladen und die geänderten Einstellungen dort nochmal vorzunehmen. 
 >
->Zum Download der PDFs für Vorabpauschale wird Programm und INI der **Version 2.06** benötigt!
+>Zum Download der PDFs für Vorabpauschale wird Programm und INI ab der **Version 2.06** benötigt!
 >
 >**Version 2.07** generiert nun sauberere Dateinamen ohne unnötige Sonderzeichen - dadurch bedingt wird der erste Abruf auch mit der Einstellung `stop_at_first_duplicate = True` nochmal die gleichen PDFs runterladen - weil sich der selbst erstellte Dateiname leicht geändert hat. 
 >
 >**Version 2.08** optional können nun die Login-Daten gespeichert werden. Dazu wird der Windows Credential Manager genutzt. Daher ist diese Funktion nur unter Windows verfügbar. Das Skript greift nur auf den Passwort-Safe von Windows zu, es speichert intern keine Login-Daten ab. Diese Funktion wird nur aktiviert, wenn dies ausdrücklich in der INI-Datei eingetragen wird - siehe Abschnitt INI Parameter. Siehe auch das Issue zu dieser Funktion. (https://github.com/MichaelN0815/SC-Downloader/issues/8#issuecomment-3849121778) 
+>
+>**Version 2.11** standardmäßig werden nur noch Transaktionen im Ausgeführt-Status gesucht, da erfahrungsgemäß die anderen keine PDF enthalten. 
+>vermeintlich doppelte Transaktionen werden nicht mehr übersprungen
+>die Dokumente sind nun nicht mehr auf die sichtbaren begrenzt und gleichnamige Dokumente werden durchnummeriert
+>Das Passwort für die use_saved_credentials Option wird nun unsichtbar abgefragt
+>Diverse kleine Probleme behoben
 >
 
 ![Screenshot1](https://github.com/user-attachments/assets/b19e3dd1-a223-451a-9c71-e818014113f3)
@@ -83,7 +89,7 @@ Ggf. auch die INI wenn man vor dem ersten Start bereits Parameter anpassen will.
 - Das Skript legt einen Order scalable_session an, in dem die Laufzeit-Daten des integrierten Browsers abgelegt werden
 - Wenn das Skript ordnungsgemäß durchläuft loggt es sich am Ende aus. Stürzt das Skript ab oder hat man die Logout-Option deaktiviert, 
   dann ist es möglich ohne Login mit diesen Session Daten Scalable aufzurufen, bis das Timeout bei Scalable greift. 
-  Ggf. sollte man den Ordner löschen, wenn man absolut sicher gehen will. 
+  Das könnte ein Sicherheits-Problem in einer Multi-User-Umgebung sein. In diesen Fällen immer mit Logout arbeiten und notfalls den Session-Ordner manuell löschen 
 	
 # INI Parameter
 
@@ -95,7 +101,9 @@ Ggf. auch die INI wenn man vor dem ersten Start bereits Parameter anpassen will.
 
 `stop_at_first_duplicate` Wenn "True", bricht das Skript ab, sobald die erste bereits vorhandene Datei gefunden wird (Standard: False)
 
-`use_original_filename` Bei "True" wird der Name von Scalable beibehalten; bei "False" wird die sprechende Benennung genutzt (Standard: False)
+`only_executed` Wenn "True" dann wird der Status-Filter auf "ausgeführt" gesetzt (Standard: True)
+
+`use_original_filename` Bei "True" wird der Name von Scalable beibehalten; bei "False" wird die sprechende Benennung für Transaktionens-PDFs genutzt und Dokument-PDFs erhalten ein besser lesbares Datumsformat (Standard: False)
 
 `get_documents` Bei "True" werden auch die Dokumente aus dem Bereich Mailbox heruntergeladen (Standard: True)
 
@@ -105,7 +113,7 @@ Ggf. auch die INI wenn man vor dem ersten Start bereits Parameter anpassen will.
 
 `logout_after_run` Meldet den Benutzer nach Abschluss aller Aktionen automatisch ab (Standard: True)
 
-`use_saved_credentials` Wenn True, dann wird ein Auto-Login durchgeführt. Die Zugangsdaten werden beim ersten Mal abgefragt und sicher im Windows Credential Manager gespeichert. Dort sind sie unter scalable_login zu finden und können dort auch wieder gelöscht werden. Im Standard werden vom Skript keine Login-Daten gespeichert, diese Funktion ist rein optional. (Standard: False)
+`use_saved_credentials` Wenn True, dann wird ein Auto-Login durchgeführt. Die Zugangsdaten werden beim ersten Mal im Skript-Fenster (nicht im Browser!) abgefragt und sicher im Windows Credential Manager gespeichert. Dort sind sie unter scalable_login zu finden und können dort auch wieder gelöscht werden. Im Standard werden vom Skript keine Login-Daten gespeichert, diese Funktion ist rein optional. (Standard: False)
 
 **[Keywords]**
 
