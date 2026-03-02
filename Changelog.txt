@@ -24,3 +24,12 @@ V2.09 Handle invalid INI configuration
       Fixed incorrect WKN examples in INI file
       Automatically terminate if login does not occur
 	  improved Popup handling
+V2.11 improved Handling of identical Document filenames
+	  fixed maximum numbers of Documents
+      converting of Date Format of Document files in case of use_original_filename = False
+	  fixed bug at new documents (green dot)
+      improved Handling of identical Transactions in list
+	  added filter: Ausgeführt-Status
+	  non-visible password request
+	  improved Timeout-Handling
+	  
