@@ -14,7 +14,7 @@ mögliche Laufzeitfehler abgefangen
 Mailbox: störenden grünen Punkt ignorieren V2
 """
 
-__version__ = "2.10.8"
+__version__ = "2.11"
 
 import os
 import sys
