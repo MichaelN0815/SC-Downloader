@@ -2,19 +2,11 @@
 # -*- coding: utf-8 -*-
 """
 Scalable Capital PDF Downloader
-verborgene Passwort Abfrage
-gleichnamige Transaktionen trotzdem laden
-gleichnamige Dokumente mit Zähler speichern
-max Anzahl Dokumente erhöht (ohne Viewport, begrenztes Scrolling)
-Status-Filter ausgeführt hinzu (INI: only_executed)
-filter_button_timeout raus
-Dokument-Dateinamen optional auch im Format YYYY-MM-DD
-Tausenderbeträge korrekt behandeln im Transaktion-PDF-Dateinamen
-mögliche Laufzeitfehler abgefangen
-Mailbox: störenden grünen Punkt ignorieren V2
+löscht Session Ordner bei Startproblemen
+optionaler INI Eintrag download_directory_mailbox hinzu für extra Download-Ordner für Mailbox-Dokumente
 """
 
-__version__ = "2.11"
+__version__ = "2.13"
 
 import os
 import sys
@@ -25,6 +17,7 @@ import platform
 import subprocess
 import tempfile
 import getpass
+import shutil
 
 from datetime import datetime
 from playwright.sync_api import sync_playwright
@@ -40,7 +33,8 @@ else:
 # --- 1. STANDARDEINSTELLUNGEN ---
 TARGET_URL = "https://de.scalable.capital/broker/transactions"
 TARGET_URL2 = "https://de.scalable.capital/cockpit/mailbox"
-DOWNLOAD_DIR = None  # NEU V2.04b Global
+DOWNLOAD_DIR = None          # NEU V2.04b Global
+DOWNLOAD_DIR_MAILBOX = None  # NEU V2.13 separates Mailbox-Verzeichnis
 SERVICE_NAME = "scalable_login" # NEU V2.08
 
 DEFAULT_CONFIG = {
@@ -289,6 +283,7 @@ def load_config():
         'max_transactions': config.getint('General', 'max_transactions', fallback=int(DEFAULT_CONFIG['max_transactions'])),
         'max_documents': config.getint('General', 'max_documents', fallback=int(DEFAULT_CONFIG['max_documents'])),
         'download_dir': config.get('General', 'download_directory', fallback=DEFAULT_CONFIG['download_directory']),
+        'download_dir_mailbox': config.get('General', 'download_directory_mailbox', fallback=None) or None,
         'use_original_filename': config.getboolean('General', 'use_original_filename', fallback=False),
         'stop_at_first_duplicate': config.getboolean('General', 'stop_at_first_duplicate', fallback=False),
         'logout_after_run': config.getboolean('General', 'logout_after_run', fallback=True),
@@ -547,6 +542,70 @@ def resolve_and_prepare_download_dir(raw_dir: str) -> str:
             input(" Drücke Enter zum Beenden...")
             sys.exit(1)
 
+def _launch_context_with_retry(p, settings):
+    """
+    Startet launch_persistent_context mit einmaligem Selbstheilungsversuch.
+
+    Tritt ein TargetClosedError auf (typisch bei beschädigter EXE-Session),
+    wird der SESSION_DIR gelöscht und genau einmal neu versucht.
+    Schlägt auch das Löschen fehl, beendet das Programm mit einer klaren
+    Handlungsanweisung an den User.
+    """
+    def _do_launch():
+        return p.chromium.launch_persistent_context(
+            SESSION_DIR,
+            headless=False,
+            slow_mo=settings['slow_mo'],
+            accept_downloads=True
+        )
+
+    try:
+        return _do_launch()
+
+    except Exception as first_error:
+        err_str = str(first_error)
+        # Nur bei TargetClosedError selbst heilen, sonst weiterwerfen
+        if ("Target page, context or browser has been closed" not in err_str
+                and "TargetClosedError" not in type(first_error).__name__):
+            raise
+
+        print(f"\n{'='*60}")
+        print(f"  ⚠  Browser-Session beschädigt erkannt (TargetClosedError)")
+        print(f"{'='*60}")
+        print(f"  → Versuche Session-Ordner automatisch zu löschen ...")
+        print(f"     {SESSION_DIR}")
+
+        # Session-Ordner löschen
+        try:
+            if os.path.exists(SESSION_DIR):
+                shutil.rmtree(SESSION_DIR)
+            print(f"  ✓ Session-Ordner gelöscht – starte einmalig neu ...\n")
+        except Exception as del_error:
+            # Löschen fehlgeschlagen → klare Meldung, kein weiterer Versuch
+            print(f"\n  ✗ Automatisches Löschen fehlgeschlagen: {del_error}")
+            print(f"\n{'='*60}")
+            print(f"  Bitte diesen Ordner manuell löschen und danach neu starten:")
+            print(f"\n     {SESSION_DIR}\n")
+            print(f"  Windows-Schnellweg:")
+            print(f"    1) Explorer öffnen")
+            print(f"    2) Pfad in die Adressleiste kopieren und Enter")
+            print(f"    3) Ordner löschen (Entf)")
+            print(f"{'='*60}")
+            input("\nDrücke Enter zum Beenden ...")
+            sys.exit(1)
+
+        # Einmaliger Neuversuch – kein weiterer Retry
+        try:
+            return _do_launch()
+        except Exception as second_error:
+            print(f"\n  ✗ Start auch nach Löschen der Session fehlgeschlagen:")
+            print(f"     {second_error}")
+            print(f"\n  Mögliche Ursachen:")
+            print(f"  • Eine andere Instanz des Programms läuft noch")
+            print(f"  • Chromium ist nicht korrekt in der EXE enthalten")
+            input("\nDrücke Enter zum Beenden ...")
+            sys.exit(1)
+
 # ==========================================================================================
 #
 # ========================================= START ==========================================
@@ -554,7 +613,7 @@ def resolve_and_prepare_download_dir(raw_dir: str) -> str:
 # ==========================================================================================
 
 def run_downloader():
-    global DOWNLOAD_DIR # NEU V2.04b
+    global DOWNLOAD_DIR, DOWNLOAD_DIR_MAILBOX # NEU V2.04b / V2.13
     settings = load_config()
     KEYWORDS = settings['keywords']
     PDF_BUTTON_NAMES = settings['pdf_button_names']
@@ -564,13 +623,15 @@ def run_downloader():
     DOWNLOAD_DIR = resolve_and_prepare_download_dir(settings['download_dir'])
     print(f"[v{__version__}] Zielordner: {DOWNLOAD_DIR}")
 
+    # NEU V2.13: separates Mailbox-Verzeichnis (optional)
+    if settings['download_dir_mailbox']:
+        DOWNLOAD_DIR_MAILBOX = resolve_and_prepare_download_dir(settings['download_dir_mailbox'])
+        print(f"[v{__version__}] Zielordner Mailbox:       {DOWNLOAD_DIR_MAILBOX}")
+    else:
+        DOWNLOAD_DIR_MAILBOX = DOWNLOAD_DIR
+
     with sync_playwright() as p:
-        context = p.chromium.launch_persistent_context(
-            SESSION_DIR, 
-            headless=False,
-            slow_mo=settings['slow_mo'],
-            accept_downloads=True
-        )
+        context = _launch_context_with_retry(p, settings)
         page = context.new_page()
 
         # NEU V2.10.6  HTTP-Cache leeren, Cookies/Session bleiben erhalten
@@ -1147,7 +1208,7 @@ def run_downloader():
                                     final_file_name = re.sub(r'^(\d{4})(\d{2})(\d{2})', r'\1-\2-\3', final_file_name)
                                 
                                 # Zielpfad festlegen
-                                target_path = os.path.join(DOWNLOAD_DIR, final_file_name)
+                                target_path = os.path.join(DOWNLOAD_DIR_MAILBOX, final_file_name)
                                 
                                 # Duplikatsprüfung mit Datumsprüfung
                                 if os.path.exists(target_path):
@@ -1174,7 +1235,7 @@ def run_downloader():
                                         counter = 1
                                         while os.path.exists(target_path):
                                             final_file_name = f"{base_name}_{counter}.pdf"
-                                            target_path = os.path.join(DOWNLOAD_DIR, final_file_name)
+                                            target_path = os.path.join(DOWNLOAD_DIR_MAILBOX, final_file_name)
                                             counter += 1
                                         print(f"  -> Gleichnamiges Dokument, speichere als: {final_file_name}")
                                 
@@ -1235,6 +1296,8 @@ def run_downloader():
         context.close()
         print(f"\n[v{__version__}] *** Ergebnis ***")
         print(f"[v{__version__}] Download-Verzeichnis: {DOWNLOAD_DIR}")
+        if DOWNLOAD_DIR_MAILBOX != DOWNLOAD_DIR:
+            print(f"[v{__version__}] Download Mailbox:       {DOWNLOAD_DIR_MAILBOX}")
         print(f"[v{__version__}] Transaktionen neu geladen: {downloaded}, Übersprungen: {skipped}")
         print(f"[v{__version__}] Dokumente     neu geladen: {docs_downloaded}, Übersprungen: {docs_skipped}")
 
