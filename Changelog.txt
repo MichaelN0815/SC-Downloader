@@ -32,4 +32,7 @@ V2.11 improved Handling of identical Document filenames
 	  added filter: Ausgeführt-Status
 	  non-visible password request
 	  improved Timeout-Handling
+V2.12 delete Session folder in case of issues starting the browser part
+V2.13 added INI option 'download_directory_mailbox' to define separate Mailbox-PDF folder (optional)
+
 	  
