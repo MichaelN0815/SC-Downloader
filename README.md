@@ -101,6 +101,8 @@ Ggf. auch die INI wenn man vor dem ersten Start bereits Parameter anpassen will.
 
 `download_directory` Name des Ordners oder kompletter Pfad, in dem die PDFs gespeichert werden (Standard: Scalable_Downloads)
 
+`download_directory_mailbox` optionale Angabe eines extra Speicherpfad für die Mailbox-PDFs (Standard: nicht genutzt)
+
 `stop_at_first_duplicate` Wenn "True", bricht das Skript ab, sobald die erste bereits vorhandene Datei gefunden wird (Standard: False)
 
 `only_executed` Wenn "True" dann wird der Status-Filter auf "ausgeführt" gesetzt (Standard: True)
@@ -251,7 +253,6 @@ If Scalable changes the text on the website, you can adjust them here. Otherwise
 
 It’s best to leave these alone as well!
 If a timeout occurs, you can experimentally increase the times here.
-
 
 
 
