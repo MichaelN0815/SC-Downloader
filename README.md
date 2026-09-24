@@ -1,3 +1,12 @@
+> [!WARNING]
+># ACHTUNG
+>
+>Scalable hat die Website geändert, der Downloader kann daher den Filter nicht korrekt setzen<br>
+>**An einer Fehlerbehebung wird gearbeitet**
+>
+<br>
+
+
 ![SC-Icon](https://github.com/user-attachments/assets/c9fdfd75-ba4b-47e6-bdbd-eb000ce26566)
 # Scalable Capital PDF Downloader  ![GitHub Release](https://img.shields.io/github/v/release/MichaelN0815/SC-Downloader)
 ![Downloads](https://img.shields.io/github/downloads/MichaelN0815/SC-Downloader/total?style=flat-square&color=blue) ![GitHub Downloads (all assets, latest release)](https://img.shields.io/github/downloads/MichaelN0815/SC-Downloader/latest/total)
