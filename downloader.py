@@ -2,11 +2,10 @@
 # -*- coding: utf-8 -*-
 """
 Scalable Capital PDF Downloader
-löscht Session Ordner bei Startproblemen
-optionaler INI Eintrag download_directory_mailbox hinzu für extra Download-Ordner für Mailbox-Dokumente
+Anpassung an geänderte Website Auftragstyp => Typ
 """
 
-__version__ = "2.13"
+__version__ = "2.14"
 
 import os
 import sys
@@ -621,12 +620,12 @@ def run_downloader():
     
     # NEU V2.09 fehlerhaften Pfad abfangen
     DOWNLOAD_DIR = resolve_and_prepare_download_dir(settings['download_dir'])
-    print(f"[v{__version__}] Zielordner: {DOWNLOAD_DIR}")
+    print(f"[v{__version__}] Zielordner:         {DOWNLOAD_DIR}")
 
     # NEU V2.13: separates Mailbox-Verzeichnis (optional)
     if settings['download_dir_mailbox']:
         DOWNLOAD_DIR_MAILBOX = resolve_and_prepare_download_dir(settings['download_dir_mailbox'])
-        print(f"[v{__version__}] Zielordner Mailbox:       {DOWNLOAD_DIR_MAILBOX}")
+        print(f"[v{__version__}] Zielordner Mailbox: {DOWNLOAD_DIR_MAILBOX}")
     else:
         DOWNLOAD_DIR_MAILBOX = DOWNLOAD_DIR
 
@@ -711,7 +710,7 @@ def run_downloader():
         # Start Filter Auftragstyp
         print(f"[v{__version__}] Setze Auftragstyp Filter...")
         try:
-            filter_button = page.get_by_text("Auftragstyp").first
+            filter_button = page.get_by_text("Typ").first
             filter_button.wait_for(state="visible", timeout=10000)
             filter_button.click()
             print("  ✓ Filter-Dropdown geöffnet")
@@ -1297,7 +1296,7 @@ def run_downloader():
         print(f"\n[v{__version__}] *** Ergebnis ***")
         print(f"[v{__version__}] Download-Verzeichnis: {DOWNLOAD_DIR}")
         if DOWNLOAD_DIR_MAILBOX != DOWNLOAD_DIR:
-            print(f"[v{__version__}] Download Mailbox:       {DOWNLOAD_DIR_MAILBOX}")
+            print(f"[v{__version__}] Download Mailbox:     {DOWNLOAD_DIR_MAILBOX}")
         print(f"[v{__version__}] Transaktionen neu geladen: {downloaded}, Übersprungen: {skipped}")
         print(f"[v{__version__}] Dokumente     neu geladen: {docs_downloaded}, Übersprungen: {docs_skipped}")
 
