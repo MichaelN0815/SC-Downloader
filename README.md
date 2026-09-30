@@ -1,8 +1,8 @@
 > [!WARNING]
 ># ACHTUNG
 >
->Scalable hat die Website geändert, der Downloader kann daher den Filter nicht korrekt setzen<br>
->**An einer Fehlerbehebung wird gearbeitet**
+>Scalable hat die Website geändert<br>
+>**Ein Update auf die V2.14 wird empfohlen**
 >
 <br>
 
@@ -132,7 +132,7 @@ Ggf. auch die INI wenn man vor dem ersten Start bereits Parameter anpassen will.
 
 `transaction_types` Komma-getrennte Liste der Begriffe, die heruntergeladen werden sollen (Standard: Ausschüttung, Kauf, Verkauf, Sparplan, Steuern)
 
-Die Namen der Typen entsprechen dem Filter "Auftragstyp" in Scalable
+Die Namen der Typen entsprechen dem Filter "Typ" in Scalable
 
 Bei manchen Transaktionen gibt es kein PDF - dann wird das Programm einen Fehler-Screenshot speichern!
 
@@ -237,7 +237,7 @@ logout_after_run: Automatically logs the user out after completing all actions (
 **[Keywords]**
 
 transaction_types: Comma-separated list of terms to be downloaded (Default: Ausschüttung, Kauf, Verkauf, Sparplan, Steuern).
-The names of the types correspond to the "Order Type" filter in Scalable.  
+The names of the types correspond to the "Type" filter in Scalable.  
 For some transactions, there is no PDF – in this case, the program will save an error screenshot!
 There are transactions that have a different name in the filter list than what is displayed in the filtered list.
 For example, "Depotübertrag" in the filter and "Einlieferung" in the list. In such cases, both must be entered under transaction_types.
