@@ -2,7 +2,7 @@
 ># ACHTUNG
 >
 >Scalable hat die Website geändert<br>
->**Der Quellcode V2.15.2 steht bereit. Ein aktualisierter EXE-Build folgt.**
+>**Bitte auf V2.15.2 aktualisieren**
 >
 <br>
 
