@@ -18,10 +18,11 @@ Ein Tool zum automatisierten Herunterladen von Wertpapierabrechnungen (Kauf, Ver
 # Features
 
 - Lädt Transaktion-Dokumente basierend auf konfigurierbaren Keywords herunter
-- Intelligente Benennung: Dateien werden nach dem Schema YYYY-MM-DD-Typ-ISIN-Name-Betrag.pdf benannt
+- Intelligente Benennung: Dateien werden nach dem Schema YYYY-MM-DD-Typ-ISIN-Name-Betrag-Depot.pdf benannt
 - Wahlweise kann die ISIN durch die WKN ersetzt werden
 - Unterstützt mehrere Depots mit nur einem Login; konfigurierbare Depot-Bezeichner in generierten Transaktions-Dateinamen und optionale Unterverzeichnisse
 - Lädt neue (oder alle) Dokumente aus der Mailbox herunter
+- Optional separate Verzeichnisse je Depot und Mailbox
 - Duplikats-Prüfung: Bereits heruntergeladene Dokumente werden anhand ihrer Dokument-ID in einer CSV-Historie erkannt, auch wenn die PDFs verschoben oder gelöscht wurden
 - Abbruch-Option: Optional beim ersten gefundenen Duplikat im jeweiligen Depot stoppen (stop_at_first_duplicate)
 - Unterstützt den manuellen Login inklusive Zwei-Faktor-Authentifizierung
@@ -47,7 +48,7 @@ Ein Tool zum automatisierten Herunterladen von Wertpapierabrechnungen (Kauf, Ver
 >Das Passwort für die use_saved_credentials Option wird nun unsichtbar abgefragt  
 >Diverse kleine Probleme behoben  
 >
->**Version 2.15** unterstützt mehrere Depots (Issue #25) und führt automatisch eine CSV-Download-Historie (Issue #23). Bestehende INI-Dateien funktionieren weiterhin. Beim erstmaligen Aufbau der Historie werden vorhandene Dateien anhand der bisherigen Dateinamen erkannt und beim Abruf in die Historie übernommen. Dokumente, die dabei nicht verarbeitet werden, können später erneut heruntergeladen werden. Für den ersten Lauf empfiehlt es sich daher, `stop_at_first_duplicate = False` zu setzen und die Abrufgrenzen ausreichend hoch einzustellen. Bei geänderten Dateinamen oder Zielverzeichnissen (z. B. durch die neue Depot-Konfiguration) können vorhandene PDFs erneut geladen werden. Die bestehenden PDFs werden nicht automatisch umbenannt oder verschoben.
+>**Version 2.15** unterstützt mehrere Depots und führt automatisch eine CSV-Download-Historie. Bestehende INI-Dateien funktionieren weiterhin. Beim erstmaligen Aufbau der Historie werden vorhandene Dateien anhand der bisherigen Dateinamen erkannt und beim Abruf in die Historie übernommen. Dokumente, die dabei nicht verarbeitet werden, können später erneut heruntergeladen werden. Für den ersten Lauf empfiehlt es sich daher, `stop_at_first_duplicate = False` zu setzen und die Abrufgrenzen ausreichend hoch einzustellen. Bei geänderten Dateinamen oder Zielverzeichnissen (z. B. durch die neue Depot-Konfiguration) können vorhandene PDFs erneut geladen werden. Die bestehenden PDFs werden nicht automatisch umbenannt oder verschoben.
 >
 
 ![Screenshot1](https://github.com/user-attachments/assets/b19e3dd1-a223-451a-9c71-e818014113f3)
@@ -78,7 +79,7 @@ Alles was mit `#` beginnt ist ein Kommentar und hat keine Funktion.
 * Projekt-Ordner erstellen und downloader.py sowie start_downloader.bat hineinkopieren.
 Ggf. auch die INI wenn man vor dem ersten Start bereits Parameter anpassen will. Ansonsten wird die INI automatisch erstellt.
 
-* Bibliotheken installieren: 
+* Bibliotheken installieren (Playwright 1.63.0 sollte wegen eines sporadischen Download-Fehlers vermieden werden): 
 
 	`pip install playwright==1.62.0`
 
