@@ -35,5 +35,16 @@ V2.11 improved Handling of identical Document filenames
 V2.12 delete Session folder in case of issues starting the browser part
 V2.13 added INI option 'download_directory_mailbox' to define separate Mailbox-PDF folder (optional)
 V2.14 adjust Filter Option to fit the updated website design
+V2.15 support multiple portfolios in one session (Issue #25)
+      append configured portfolio name to generated transaction filenames
+      optional subdirectories for portfolios and Mailbox
+      persistent CSV download history using document IDs (Issue #23)
+      duplicate detection independent of the presence of downloaded PDFs
+      preserve distinct documents with identical filenames
+V2.15.1 wait for portfolio navigation and retry once on failure
+        show expected and actual URL on portfolio verification failure
+        log browser page crash and context close events
 
-	  
+V2.15.2 retry authentication once on unexpected login redirect during navigation
+        stop navigation after browser closure; omit login query parameters from URL diagnostics
+        recommend tested Playwright 1.62.0 in script mode; EXE build update pending
